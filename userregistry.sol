@@ -24,9 +24,10 @@ pragma solidity ^0.8.0;
 import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrator.sol";
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrable.sol";
+import "./iuserregistry.sol";
 
 
-contract UserRegistry is Ownable, IArbitrable
+contract UserRegistry is Ownable, IArbitrable, IUserRegistry
 {
     event Deployed();
     event ArbitratorChanged(address arbitrator);
@@ -65,6 +66,11 @@ contract UserRegistry is Ownable, IArbitrable
     {
         hashOfSecret[_msgSender()] = hash;
         emit HashOfSecretLoaded(_msgSender(), hash);
+    }
+
+    function isSuccessor(address user, address successor) public view override returns(bool)
+    {
+        return successors[user] == successor;
     }
 
     function successorRequest(address user, bytes calldata extraData) public payable returns(uint256)
