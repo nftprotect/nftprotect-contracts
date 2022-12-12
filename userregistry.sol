@@ -31,7 +31,7 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
 {
     event Deployed();
     event ArbitratorChanged(address arbitrator);
-    event HashOfSecretLoaded(address indexed user, bytes hash);
+    event HashOfSecretLoaded(address indexed user, bytes32 hash);
     event SuccessorRequested(uint256 indexed disputeId, address indexed user, address indexed successor, bytes extraData);
     event SuccessorAppealed(uint256 indexed disputeId, bytes extraData);
     event SuccessorApproved(uint256 indexed disputeId);
@@ -40,7 +40,7 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
     IArbitrator public   arbitrator;
     uint256     constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
 
-    mapping(address => bytes)   public hashOfSecret;
+    mapping(address => bytes32) public hashOfSecret;
     mapping(address => address) public successors;
 
     struct SuccessorRequest
@@ -62,7 +62,7 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         emit ArbitratorChanged(arb);
     }
 
-    function loadHashOfSecret(bytes memory hash) public
+    function loadHashOfSecret(bytes32 hash) public
     {
         hashOfSecret[_msgSender()] = hash;
         emit HashOfSecretLoaded(_msgSender(), hash);
@@ -73,8 +73,11 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         return successors[user] == successor;
     }
 
-    function successorRequest(address user, bytes calldata extraData) public payable returns(uint256)
+    function successorRequest(address user, bytes memory secret, bytes calldata extraData) public payable returns(uint256)
     {
+        bytes32 hash = hashOfSecret[user];
+        require(hash != 0, "UserRegistry: Uninitialized user");
+        require(hash == keccak256(abi.encodePacked(secret)), "UserRegistry: invalid secret");
         uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
         disputes[disputeId] = SuccessorRequest(user, _msgSender());
         emit SuccessorRequested(disputeId, user, _msgSender(), extraData);
