@@ -48,7 +48,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
         uint256 tokenId;
         address owner;
     }
-    mapping(uint256 => Original) public tokens;
+    // Wrapped tokenId to original
+    mapping(uint256 => Original) public tokens; 
+    // Contract => original tokenId => wrapped tokenId
+    mapping(address => mapping(uint256 => uint256)) public fromOriginals;
     
     enum Status
     {
@@ -118,6 +121,11 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
         return token.contr.tokenURI(token.tokenId);
     }
 
+    function originalOwnerOf(ERC721 contr, uint256 tokenId) public view returns(address)
+    {
+        return tokens[fromOriginals[address(contr)][tokenId]].owner;
+    }
+
     /**
      * @dev Wrap external token, described as pair `contr` and `tokenId`.
      * Owner of token must approve `tokenId` for NFTProtect contract to make
@@ -133,6 +141,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
         allow = 1;
         contr.safeTransferFrom(_msgSender(), address(this), tokenId);
         allow = 0;
+        fromOriginals[address(contr)][tokenId] = tokensCounter;
         emit Wrapped(_msgSender(), address(contr), tokenId, tokensCounter);
     }
 
@@ -150,6 +159,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
         token.contr.safeTransferFrom(address(this), _msgSender(), token.tokenId);
         delete tokens[tokenId];
         delete requests[tokenToRequest[tokenId]];
+        delete fromOriginals[address(token.contr)][token.tokenId];
         emit Unwrapped(_msgSender(), tokenId);
     }
 
