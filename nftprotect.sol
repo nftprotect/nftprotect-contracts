@@ -44,6 +44,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
     event OwnershipAdjustmentAnswered(uint256 indexed requestId, bool accept);
     event OwnershipAdjustmentArbitrateAsked(uint256 indexed requestId, uint256 indexed disputeId, bytes extraData);
     event OwnershipAdjustmentAppealed(uint256 indexed requestId, bytes extraData);
+    event OwnershipRestoreAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId);
+    event OwnershipRestoreAnswered(uint256 indexed requestId, bool accept);
 
     struct Original
     {
@@ -63,15 +65,21 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
         Rejected,
         Disputed
     }
-    struct OwnershipAdjustmentRequest
+    enum ReqType
     {
+        OwnershipAdjustment,
+        OwnershipRestore
+    }
+    struct Request
+    {
+        ReqType reqtype; 
         uint256 tokenId;
         address newowner;
         uint256 timeout;
         Status  status;
         uint256 disputeId;
     }
-    mapping(uint256 => OwnershipAdjustmentRequest) public requests;
+    mapping(uint256 => Request) public requests;
     mapping(uint256 => uint256) public tokenToRequest;
     mapping(uint256 => uint256) public disputeToRequest;
     
@@ -181,12 +189,12 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
         emit Unwrapped(_msgSender(), tokenId);
     }
 
-    function _hasOwnershipAdjustmentRequest(uint256 tokenId) internal view returns(bool)
+    function _hasRequest(uint256 tokenId) internal view returns(bool)
     {
         uint256 requestId = tokenToRequest[tokenId];
         if (requestId != 0)
         {
-            OwnershipAdjustmentRequest memory request = requests[requestId];
+            Request memory request = requests[requestId];
             return (request.timeout < block.timestamp &&
                 request.status == Status.Initial) ||
                 request.status == Status.Disputed;
@@ -202,7 +210,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
     function askOwnershipAdjustment(uint256 tokenId) public 
     {
         require(_isApprovedOrOwner(_msgSender(), tokenId), "NFTProtect: not the owner");
-        require(!_hasOwnershipAdjustmentRequest(tokenId), "NFTProtect: already have request");
+        require(!_hasRequest(tokenId), "NFTProtect: already have request");
         requestsCounter++;
         Original storage token = tokens[tokenId];
         if (token.owner != _msgSender() &&
@@ -215,7 +223,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
         }
         require(!isOriginalOwner(tokenId, _msgSender()), "NFTProtect: already owner");
         requests[requestsCounter] =
-            OwnershipAdjustmentRequest(
+            Request(
+                ReqType.OwnershipAdjustment,
                 tokenId,
                 _msgSender(),
                 block.timestamp + duration,
@@ -231,7 +240,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
      */
     function answerOwnershipAdjustment(uint256 requestId, bool accept) public
     {
-        OwnershipAdjustmentRequest storage request = requests[requestId];
+        Request storage request = requests[requestId];
         require(request.status == Status.Initial, "NFTProtect: already answered");
         require(request.timeout < block.timestamp, "NFTProtect: timeout");
         Original storage token = tokens[request.tokenId];
@@ -251,7 +260,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
      */
     function askOwnershipAdjustmentArbitrate(uint256 requestId, bytes calldata extraData) public payable
     {
-        OwnershipAdjustmentRequest storage request = requests[requestId];
+        Request storage request = requests[requestId];
         require(request.timeout > 0, "NFTProtect: unknown requestId");
         require(request.timeout >= block.timestamp, "NFTProtect: wait for answer more");
         require(request.status == Status.Initial || request.status == Status.Rejected, "NFTProtect: wrong status");
@@ -264,12 +273,38 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
 
     function ownershipAdjustmentAppeal(uint256 requestId, bytes calldata extraData) public payable
     {
-        OwnershipAdjustmentRequest storage request = requests[requestId];
+        Request storage request = requests[requestId];
         require(request.timeout > 0, "NFTProtect: unknown requestId");
         require(request.status == Status.Disputed, "NFTProtect: wrong status");
         require(_isApprovedOrOwner(_msgSender(), request.tokenId), "NFTProtect: not the owner");
         arbitrator.appeal{value: msg.value}(request.disputeId, extraData);
         emit OwnershipAdjustmentAppealed(requestId, extraData);
+    }
+
+    /**
+     * @dev Create request for ownership restore for `tokenId` at `contr`. Can be called
+     * by owner of original token if he or she lost access to wrapped token or it was stolen.
+     * This function create dispute on external ERC-792 compatible arbitrator.
+     */
+    function askOwnershipRestoreArbitrate(ERC721 contr, uint256 tokenId, bytes calldata extraData) public payable
+    {
+        uint256 wTokenId = fromOriginals[address(contr)][tokenId];
+        require(!_hasRequest(wTokenId), "NFTProtect: already have request");
+        require(isOriginalOwner(wTokenId, _msgSender()), "NFTProtect: not the owner of the original token");
+        require(_exists(wTokenId), "NFTProtect: nonexistent token");
+        require(!_isApprovedOrOwner(_msgSender(), wTokenId), "NFTProtect: already owner");
+        uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
+        requests[++requestsCounter] =
+            Request(
+                ReqType.OwnershipRestore,
+                wTokenId,
+                _msgSender(),
+                0,
+                Status.Disputed,
+                disputeId);
+        disputeToRequest[disputeId] = requestsCounter;
+        tokenToRequest[wTokenId] = requestsCounter;
+        emit OwnershipRestoreAsked(requestsCounter, _msgSender(), ownerOf(wTokenId), wTokenId);
     }
 
     /**
@@ -282,14 +317,28 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
         require(ruling <= numberOfRulingOptions, "NFTProtect: invalid ruling");
         uint256 requestId = disputeToRequest[disputeId];
         require(requestId > 0, "NFTProtect: unknown requestId");
-        OwnershipAdjustmentRequest storage request = requests[requestId];
+        Request storage request = requests[requestId];
         bool accept = ruling == 1;
         request.status = accept ? Status.Accepted : Status.Rejected;
         if (accept)
         {
-            tokens[request.tokenId].owner = request.newowner; 
+            if (request.reqtype == ReqType.OwnershipAdjustment)
+            {
+                tokens[request.tokenId].owner = request.newowner;
+            }
+            else if (request.reqtype == ReqType.OwnershipRestore)
+            {
+                safeTransferFrom(ownerOf(request.tokenId), request.newowner, request.tokenId);
+            }
         }
-        emit OwnershipAdjustmentAnswered(requestId, accept);
+        if (request.reqtype == ReqType.OwnershipAdjustment)
+        {
+            emit OwnershipAdjustmentAnswered(requestId, accept);
+        }
+        else if (request.reqtype == ReqType.OwnershipRestore)
+        {
+            emit OwnershipRestoreAnswered(requestId, accept);
+        }
         emit Ruling(arbitrator, disputeId, ruling);
     }
 
