@@ -73,6 +73,16 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         return successors[user] == successor;
     }
 
+    function hasSuccessor(address user) public view override returns(bool)
+    {
+        return successors[user] != address(0);
+    }
+
+    function successorOf(address user) external view override returns(address)
+    {
+        return successors[user];
+    }
+
     function successorRequest(address user, bytes memory secret, bytes calldata extraData) public payable returns(uint256)
     {
         bytes32 hash = hashOfSecret[user];

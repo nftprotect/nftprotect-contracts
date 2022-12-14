@@ -142,14 +142,20 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
 
     function originalOwnerOf(ERC721 contr, uint256 tokenId) public view returns(address)
     {
-        return tokens[fromOriginals[address(contr)][tokenId]].owner;
+        address owner = tokens[fromOriginals[address(contr)][tokenId]].owner;
+        while(userRegistry.hasSuccessor(owner))
+        {
+            owner = userRegistry.successorOf(owner);
+        }
+        return owner;
     }
 
     function isOriginalOwner(uint256 tokenId, address candidate) public view returns(bool)
     {
         Original memory token = tokens[tokenId];
-        return token.owner == candidate ||
-            userRegistry.isSuccessor(token.owner, candidate);        
+        return !userRegistry.hasSuccessor(candidate) &&
+            (token.owner == candidate ||
+             userRegistry.isSuccessor(token.owner, candidate));
     }
 
     /**
@@ -344,8 +350,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
 
     function _isApprovedOrOwner(address spender, uint256 tokenId) internal view override returns (bool)
     {
-        return super._isApprovedOrOwner(spender, tokenId) ?
-            true :
-            userRegistry.isSuccessor(ownerOf(tokenId), spender);
+        return (userRegistry.hasSuccessor(spender)) ?
+            false :
+            super._isApprovedOrOwner(spender, tokenId) ?
+                true :
+                userRegistry.isSuccessor(ownerOf(tokenId), spender);
     }
 }
