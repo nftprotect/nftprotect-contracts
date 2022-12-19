@@ -168,6 +168,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
     {
         require(msg.value == feeWei, "NFTProtect: wrong payment");
         payable(owner()).sendValue(msg.value);
+        require(userRegistry.isRegistered(_msgSender()), "NFTProtect: user must be registered");
         _mint(_msgSender(), ++tokensCounter);
         tokens[tokensCounter] = Original(contr, tokenId, _msgSender());
         allow = 1;
@@ -355,5 +356,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
             super._isApprovedOrOwner(spender, tokenId) ?
                 true :
                 userRegistry.isSuccessor(ownerOf(tokenId), spender);
+    }
+
+    function _beforeTokenTransfer(address /*from*/, address to, uint256 /*tokenId*/) internal view override
+    {
+        require(userRegistry.isRegistered(to), "NFTProtect: user must be registered");
     }
 }

@@ -68,6 +68,11 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         emit HashOfSecretLoaded(_msgSender(), hash);
     }
 
+    function isRegistered(address user) public view override returns(bool)
+    {
+        return hashOfSecret[user] == bytes32(0);
+    }
+
     function isSuccessor(address user, address successor) public view override returns(bool)
     {
         return successors[user] == successor;

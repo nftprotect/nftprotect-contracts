@@ -23,6 +23,8 @@ pragma solidity ^0.8.0;
 
 interface IUserRegistry
 {
+    function isRegistered(address user) external view returns(bool);
+
     function isSuccessor(address user, address successor) external view returns(bool);
 
     function hasSuccessor(address user) external view returns(bool);
