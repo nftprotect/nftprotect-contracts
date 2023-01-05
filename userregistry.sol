@@ -25,22 +25,23 @@ import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/access/Ownable.
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrator.sol";
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrable.sol";
 import "./iuserregistry.sol";
+import "./iuseridentify.sol";
 
 
 contract UserRegistry is Ownable, IArbitrable, IUserRegistry
 {
     event Deployed();
     event ArbitratorChanged(address arbitrator);
-    event HashOfSecretLoaded(address indexed user, bytes32 hash);
+    event IdentifyChanged(address ident);
     event SuccessorRequested(uint256 indexed disputeId, address indexed user, address indexed successor, bytes extraData);
     event SuccessorAppealed(uint256 indexed disputeId, bytes extraData);
     event SuccessorApproved(uint256 indexed disputeId);
     event SuccessorRejected(uint256 indexed disputeId);
 
-    IArbitrator public   arbitrator;
-    uint256     constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
+    IArbitrator   public   arbitrator;
+    IUserIdentify public   identify;
+    uint256       constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
 
-    mapping(address => bytes32) public hashOfSecret;
     mapping(address => address) public successors;
 
     struct SuccessorRequest
@@ -50,10 +51,11 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
     }
     mapping(uint256 => SuccessorRequest) public disputes;
 
-    constructor(address arb)
+    constructor(address arb, address ident)
     {
         emit Deployed();
         setArbitrator(arb);
+        setIdentify(ident);
     }
     
     function setArbitrator(address arb) public onlyOwner
@@ -62,15 +64,15 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         emit ArbitratorChanged(arb);
     }
 
-    function loadHashOfSecret(bytes32 hash) public
+    function setIdentify(address ident) public onlyOwner
     {
-        hashOfSecret[_msgSender()] = hash;
-        emit HashOfSecretLoaded(_msgSender(), hash);
+        identify = IUserIdentify(ident);
+        emit IdentifyChanged(ident);
     }
 
     function isRegistered(address user) public view override returns(bool)
     {
-        return hashOfSecret[user] == bytes32(0);
+        return identify.isIdentified(user);
     }
 
     function isSuccessor(address user, address successor) public view override returns(bool)
@@ -88,11 +90,9 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         return successors[user];
     }
 
-    function successorRequest(address user, bytes memory secret, bytes calldata extraData) public payable returns(uint256)
+    function successorRequest(address user, bytes calldata extraData) public payable returns(uint256)
     {
-        bytes32 hash = hashOfSecret[user];
-        require(hash != 0, "UserRegistry: Uninitialized user");
-        require(hash == keccak256(abi.encodePacked(secret)), "UserRegistry: invalid secret");
+        require(isRegistered(user), "UserRegistry: Unregistered user");
         uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
         disputes[disputeId] = SuccessorRequest(user, _msgSender());
         emit SuccessorRequested(disputeId, user, _msgSender(), extraData);
@@ -113,8 +113,6 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         SuccessorRequest memory request = disputes[disputeId];
         if (ruling == 1)
         {
-            // hasOfSecret is compromized, need to delete it
-            delete hashOfSecret[request.user];
             successors[request.user] = request.successor;
             emit SuccessorApproved(disputeId);
         }
