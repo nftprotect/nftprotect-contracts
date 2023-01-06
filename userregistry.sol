@@ -25,22 +25,22 @@ import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/access/Ownable.
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrator.sol";
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrable.sol";
 import "./iuserregistry.sol";
-import "./iuseridentify.sol";
+import "./iuserdid.sol";
 
 
 contract UserRegistry is Ownable, IArbitrable, IUserRegistry
 {
     event Deployed();
     event ArbitratorChanged(address arbitrator);
-    event IdentifyChanged(address ident);
+    event DIDChanged(address did);
     event SuccessorRequested(uint256 indexed disputeId, address indexed user, address indexed successor, bytes extraData);
     event SuccessorAppealed(uint256 indexed disputeId, bytes extraData);
     event SuccessorApproved(uint256 indexed disputeId);
     event SuccessorRejected(uint256 indexed disputeId);
 
-    IArbitrator   public   arbitrator;
-    IUserIdentify public   identify;
-    uint256       constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
+    IArbitrator public   arbitrator;
+    IUserDID    public   did;
+    uint256     constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
 
     mapping(address => address) public successors;
 
@@ -51,11 +51,11 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
     }
     mapping(uint256 => SuccessorRequest) public disputes;
 
-    constructor(address arb, address ident)
+    constructor(address arb, address ddid)
     {
         emit Deployed();
         setArbitrator(arb);
-        setIdentify(ident);
+        setDID(ddid);
     }
     
     function setArbitrator(address arb) public onlyOwner
@@ -64,20 +64,20 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         emit ArbitratorChanged(arb);
     }
 
-    function setIdentify(address ident) public onlyOwner
+    function setDID(address newdid) public onlyOwner
     {
-        identify = IUserIdentify(ident);
-        emit IdentifyChanged(ident);
+        did = IUserDID(newdid);
+        emit DIDChanged(newdid);
     }
 
     function isRegistered(address user) public view override returns(bool)
     {
-        return identify.isIdentified(user);
+        return did.isIdentified(user);
     }
 
     function scores(address user) public view override returns(uint256)
     {
-        return identify.scores(user);
+        return did.scores(user);
     }
 
     function isSuccessor(address user, address successor) public view override returns(bool)

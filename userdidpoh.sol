@@ -1,18 +1,18 @@
 /*
 This file is part of the NFT Protect project <https://nftprotect.app/>
 
-The UserIdentifyPoH Contract is free software: you can redistribute it and/or
+The UserDIDPoH Contract is free software: you can redistribute it and/or
 modify it under the terms of the GNU lesser General Public License as published
 by the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-The UserIdentifyPoH Contract is distributed in the hope that it will be useful,
+The UserDIDPoH Contract is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 GNU lesser General Public License for more details.
 
 You should have received a copy of the GNU lesser General Public License
-along with the UserIdentifyPoH Contract. If not, see <http://www.gnu.org/licenses/>.
+along with the UserDIDPoH Contract. If not, see <http://www.gnu.org/licenses/>.
 
 @author Ilya Svirin <is.svirin@gmail.com>
 */
@@ -21,14 +21,14 @@ along with the UserIdentifyPoH Contract. If not, see <http://www.gnu.org/license
 
 pragma solidity ^0.8.0;
 
-import "./iuseridentify.sol";
+import "./iuserdid.sol";
 
 interface IPoH
 {
     function isRegistered(address user) external view returns(bool);
 }
 
-contract UserIdentfyPoH is IUserIdentify
+contract UserDIDPoH is IUserDID
 {
     /** Proof Of Humanity contract address in Ethereum network */
     address constant public PoH = 0xC5E9dDebb09Cd64DfaCab4011A0D5cEDaf7c9BDb;
