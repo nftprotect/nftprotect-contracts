@@ -40,8 +40,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
     event ArbitratorChanged(address arbitrator);
     event UserRegistryChanged(address ureg);
     event BurnOnActionChanged(bool boa);
+    event ScoreThresholdChanged(uint256 threshold);
     event AffiliatePercentChanged(uint256 percent);
-    event Wrapped(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId);
+    event Wrapped(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, Security level);
     event Unwrapped(address indexed owner, uint256 indexed tokenId);
     event AffiliatePayment(address indexed from, address indexed to, uint256 amountWei);
     event OwnershipAdjusted(address indexed newowner, address indexed oldowner, uint256 tokenId);
@@ -52,11 +53,18 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
     event OwnershipRestoreAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId);
     event OwnershipRestoreAnswered(uint256 indexed requestId, bool accept);
 
+    enum Security
+    {
+        Regular,
+        Full
+    }
+
     struct Original
     {
-        ERC721  contr;
-        uint256 tokenId;
-        address owner;
+        ERC721   contr;
+        uint256  tokenId;
+        address  owner;
+        Security level;
     }
     // Wrapped tokenId to original
     mapping(uint256 => Original) public tokens; 
@@ -98,6 +106,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
     IUserRegistry public   userRegistry;
     bool          public   burnOnAction;
     uint256       public   affiliatePercent;
+    uint256       public   scoreThreshold;
 
     uint256       internal allow;
 
@@ -109,6 +118,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
         setUserRegistry(ureg);
         setBurnOnAction(true);
         setAffiliatePercent(20);
+        setScoreThreshold(0);
     }
 
     function setFee(uint256 fw) public onlyOwner
@@ -139,6 +149,12 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
     {
         affiliatePercent = percent;
         emit AffiliatePercentChanged(percent);
+    }
+
+    function setScoreThreshold(uint256 threshold) public onlyOwner
+    {
+        scoreThreshold = threshold;
+        emit ScoreThresholdChanged(threshold);
     }
 
     /**
@@ -186,8 +202,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
      * contract. Mint wrapped token for owner.
      * If referrer is given, pay affiliatePercent of user payment to him.
      */
-    function wrap(ERC721 contr, uint256 tokenId, address payable referrer) public nonReentrant payable
+    function wrap(ERC721 contr, uint256 tokenId, Security level, address payable referrer) public nonReentrant payable
     {
+        require(level == Security.Regular || userRegistry.scores(_msgSender()) >= scoreThreshold, "NFT Protect: not enough scores for this level of security");
+        require(userRegistry.isRegistered(_msgSender()), "NFTProtect: user must be registered");
         uint256 value = msg.value;
         require(value == feeWei, "NFTProtect: wrong payment");
         if (referrer != address(0))
@@ -202,14 +220,13 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
             }
         }
         payable(owner()).sendValue(value);
-        require(userRegistry.isRegistered(_msgSender()), "NFTProtect: user must be registered");
         _mint(_msgSender(), ++tokensCounter);
-        tokens[tokensCounter] = Original(contr, tokenId, _msgSender());
+        tokens[tokensCounter] = Original(contr, tokenId, _msgSender(), level);
         allow = 1;
         contr.safeTransferFrom(_msgSender(), address(this), tokenId);
         allow = 0;
         fromOriginals[address(contr)][tokenId] = tokensCounter;
-        emit Wrapped(_msgSender(), address(contr), tokenId, tokensCounter);
+        emit Wrapped(_msgSender(), address(contr), tokenId, tokensCounter, level);
     }
 
     /**
