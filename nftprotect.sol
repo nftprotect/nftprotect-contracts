@@ -485,8 +485,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
                 userRegistry.isSuccessor(ownerOf(tokenId), spender);
     }
 
-    function _beforeTokenTransfer(address /*from*/, address to, uint256 /*tokenId*/) internal view override
+    function _beforeTokenTransfer(address /*from*/, address to, uint256 tokenId) internal view override
     {
         require(userRegistry.isRegistered(to), "NFTProtect: user must be registered");
+        require(!_hasRequest(tokenId), "NFTProtect: can't transfer token under dispute");
     }
 }
