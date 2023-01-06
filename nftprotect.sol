@@ -38,6 +38,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
     event FeeChanged(uint256 feeWei);
     event ArbitratorChanged(address arbitrator);
     event UserRegistryChanged(address ureg);
+    event BurnOnActionChanged(bool boa);
     event Wrapped(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId);
     event Unwrapped(address indexed owner, uint256 indexed tokenId);
     event OwnershipAdjusted(address indexed newowner, address indexed oldowner, uint256 tokenId);
@@ -93,6 +94,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
     IArbitrator   public   arbitrator;
     IUserRegistry public   userRegistry;
 
+    bool          public   burnOnAction;
+
     uint256       internal allow;
 
     constructor(uint256 fw, address arb, address ureg) ERC721("NFT Protect", "wNFT")
@@ -101,6 +104,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
         setFee(fw);
         setArbitrator(arb);
         setUserRegistry(ureg);
+        setBurnOnAction(true);
     }
 
     function setFee(uint256 fw) public onlyOwner
@@ -119,6 +123,12 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
     {
         userRegistry = IUserRegistry(ureg);
         emit UserRegistryChanged(ureg);
+    }
+
+    function setBurnOnAction(bool boa) public onlyOwner
+    {
+        burnOnAction = boa;
+        emit BurnOnActionChanged(boa);
     }
 
     /**
@@ -188,13 +198,18 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
     {
         require(_isApprovedOrOwner(_msgSender(), tokenId), "NFTProtect: not the owner");
         require(isOriginalOwner(tokenId, _msgSender()), "NFTProtect: need to askOwnershipAdjustment first");
-        _burn(tokenId);
+        _burn(_msgSender(), tokenId);
+    }
+
+    function _burn(address owner, uint256 tokenId) internal
+    {
+        super._burn(tokenId);
         Original memory token = tokens[tokenId];
-        token.contr.safeTransferFrom(address(this), _msgSender(), token.tokenId);
+        token.contr.safeTransferFrom(address(this), owner, token.tokenId);
         delete tokens[tokenId];
         delete requests[tokenToRequest[tokenId]];
         delete fromOriginals[address(token.contr)][token.tokenId];
-        emit Unwrapped(_msgSender(), tokenId);
+        emit Unwrapped(owner, tokenId);
     }
 
     function _hasRequest(uint256 tokenId) internal view returns(bool)
@@ -220,6 +235,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
         Original storage token = tokens[tokenId];
         token.owner = ownerOf(tokenId);
         emit OwnershipAdjusted(token.owner, _msgSender(), tokenId);
+        if (burnOnAction)
+        {
+            _burn(token.owner, tokenId);
+        }
     }
 
     /**
@@ -239,6 +258,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
             token.owner = _msgSender();
             emit OwnershipAdjustmentAsked(requestsCounter, _msgSender(), token.owner, tokenId);
             emit OwnershipAdjustmentAnswered(requestsCounter, true);
+            if (burnOnAction)
+            {
+                _burn(token.owner, tokenId);
+            }
             return;
         }
         require(!isOriginalOwner(tokenId, _msgSender()), "NFTProtect: already owner");
@@ -271,6 +294,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
             token.owner = request.newowner;
         }
         emit OwnershipAdjustmentAnswered(requestId, accept);
+        if (accept && burnOnAction)
+        {
+            _burn(token.owner, request.tokenId);
+        }
     }
 
     /**
@@ -340,6 +367,14 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
         Request storage request = requests[requestId];
         bool accept = ruling == 1;
         request.status = accept ? Status.Accepted : Status.Rejected;
+        if (request.reqtype == ReqType.OwnershipAdjustment)
+        {
+            emit OwnershipAdjustmentAnswered(requestId, accept);
+        }
+        else if (request.reqtype == ReqType.OwnershipRestore)
+        {
+            emit OwnershipRestoreAnswered(requestId, accept);
+        }
         if (accept)
         {
             if (request.reqtype == ReqType.OwnershipAdjustment)
@@ -350,14 +385,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
             {
                 safeTransferFrom(ownerOf(request.tokenId), request.newowner, request.tokenId);
             }
-        }
-        if (request.reqtype == ReqType.OwnershipAdjustment)
-        {
-            emit OwnershipAdjustmentAnswered(requestId, accept);
-        }
-        else if (request.reqtype == ReqType.OwnershipRestore)
-        {
-            emit OwnershipRestoreAnswered(requestId, accept);
+            if (burnOnAction)
+            {
+                _burn(request.newowner, request.tokenId);
+            }
         }
         emit Ruling(arbitrator, disputeId, ruling);
     }
