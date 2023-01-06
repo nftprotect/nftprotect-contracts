@@ -21,16 +21,17 @@ along with the NFTProtect Contract. If not, see <http://www.gnu.org/licenses/>.
 
 pragma solidity ^0.8.0;
 
-import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/access/Ownable.sol";
+import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
 import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/utils/Address.sol";
+import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrator.sol";
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrable.sol";
 import "./iuserregistry.sol";
 
 
-contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
+contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, ReentrancyGuard
 {
     using Address for address payable;
 
@@ -39,8 +40,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
     event ArbitratorChanged(address arbitrator);
     event UserRegistryChanged(address ureg);
     event BurnOnActionChanged(bool boa);
+    event AffiliatePercentChanged(uint256 percent);
     event Wrapped(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId);
     event Unwrapped(address indexed owner, uint256 indexed tokenId);
+    event ReferralPayment(address indexed from, address indexed to, uint256 amountWei);
     event OwnershipAdjusted(address indexed newowner, address indexed oldowner, uint256 tokenId);
     event OwnershipAdjustmentAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId);
     event OwnershipAdjustmentAnswered(uint256 indexed requestId, bool accept);
@@ -93,8 +96,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
     uint256       public   requestsCounter;
     IArbitrator   public   arbitrator;
     IUserRegistry public   userRegistry;
-
     bool          public   burnOnAction;
+    uint256       public   affiliatePercent;
 
     uint256       internal allow;
 
@@ -105,6 +108,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
         setArbitrator(arb);
         setUserRegistry(ureg);
         setBurnOnAction(true);
+        setAffiliatePercent(20);
     }
 
     function setFee(uint256 fw) public onlyOwner
@@ -129,6 +133,12 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
     {
         burnOnAction = boa;
         emit BurnOnActionChanged(boa);
+    }
+
+    function setAffiliatePercent(uint256 percent) public onlyOwner
+    {
+        affiliatePercent = percent;
+        emit AffiliatePercentChanged(percent);
     }
 
     /**
@@ -174,11 +184,24 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
      * Owner of token must approve `tokenId` for NFTProtect contract to make
      * it possible to safeTransferFrom this token from the owner to NFTProtect
      * contract. Mint wrapped token for owner.
+     * If referrer is given, pay affiliatePercent of user payment to him.
      */
-    function wrap(ERC721 contr, uint256 tokenId) public payable
+    function wrap(ERC721 contr, uint256 tokenId, address payable referrer) public nonReentrant payable
     {
-        require(msg.value == feeWei, "NFTProtect: wrong payment");
-        payable(owner()).sendValue(msg.value);
+        uint256 value = msg.value;
+        require(value == feeWei, "NFTProtect: wrong payment");
+        if (referrer != address(0))
+        {
+            require(referrer != _msgSender(), "NFTProtect: invalid referrer");
+            uint256 reward = value * affiliatePercent / 100;
+            if (reward > 0)
+            {
+                value -= reward;
+                referrer.sendValue(reward);
+                emit ReferralPayment(_msgSender(), referrer, reward);
+            }
+        }
+        payable(owner()).sendValue(value);
         require(userRegistry.isRegistered(_msgSender()), "NFTProtect: user must be registered");
         _mint(_msgSender(), ++tokensCounter);
         tokens[tokensCounter] = Original(contr, tokenId, _msgSender());
