@@ -335,29 +335,37 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
      * @dev Must be called by the owner of the original token to confirm or reject
      * ownership transfer to the new owner of the wrapped token.
      */
-    function answerOwnershipAdjustment(uint256 requestId, bool accept) public
+    function answerOwnershipAdjustment(uint256 requestId, bool accept, bytes calldata extraData) public payable
     {
         Request storage request = requests[requestId];
         require(request.status == Status.Initial, "NFTProtect: already answered");
         require(request.timeout < block.timestamp, "NFTProtect: timeout");
         Original storage token = tokens[request.tokenId];
         require(isOriginalOwner(request.tokenId, _msgSender()), "NFTProtect: not the original owner");
-        if (token.level == Security.Protected)
+        if (accept)
         {
-            request.status = accept ? Status.Accepted : Status.Rejected;
-            if (accept)
+            if (token.level == Security.Protected)
             {
+                request.status = Status.Accepted;
                 token.owner = request.newowner;
+                emit OwnershipAdjustmentAnswered(requestId, accept);
+                if (burnOnAction)
+                {
+                    _burn(token.owner, request.tokenId);
+                }
             }
-            emit OwnershipAdjustmentAnswered(requestId, accept);
-            if (accept && burnOnAction)
+            else
             {
-                _burn(token.owner, request.tokenId);
+                request.disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
+                request.status = Status.Disputed;
+                disputeToRequest[request.disputeId] = requestId;
+                emit OwnershipAdjustmentArbitrateAsked(requestId, request.disputeId, extraData);
             }
         }
         else
         {
-            // TODO! ask arbitrator
+            request.status = Status.Rejected;
+            emit OwnershipAdjustmentAnswered(requestId, accept);
         }
     }
 
