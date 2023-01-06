@@ -40,6 +40,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
     event UserRegistryChanged(address ureg);
     event Wrapped(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId);
     event Unwrapped(address indexed owner, uint256 indexed tokenId);
+    event OwnershipAdjusted(address indexed newowner, address indexed oldowner, uint256 tokenId);
     event OwnershipAdjustmentAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId);
     event OwnershipAdjustmentAnswered(uint256 indexed requestId, bool accept);
     event OwnershipAdjustmentArbitrateAsked(uint256 indexed requestId, uint256 indexed disputeId, bytes extraData);
@@ -209,6 +210,18 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
         return false;
     }
 
+    /** @dev Transfer ownerhip for `tokenId` to the owner of wrapped token. Must
+     *  be called by the current owner of `tokenId`.
+     */
+    function adjustOwnership(uint256 tokenId) public
+    {
+        require(!_hasRequest(tokenId), "NFTProtect: already have request");
+        require(isOriginalOwner(tokenId, _msgSender()), "NFTProtect: not the original owner");
+        Original storage token = tokens[tokenId];
+        token.owner = ownerOf(tokenId);
+        emit OwnershipAdjusted(token.owner, _msgSender(), tokenId);
+    }
+
     /**
      * @dev Create request for ownership adjustment for `tokenId`. It requires
      * when somebody got ownership of wrapped token. Owner of original token
@@ -242,8 +255,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
     }
 
     /**
-     * @dev Must be called by owner of original token to confirm or reject
-     * ownership transfer to the new owner of wrapped token.
+     * @dev Must be called by the owner of the original token to confirm or reject
+     * ownership transfer to the new owner of the wrapped token.
      */
     function answerOwnershipAdjustment(uint256 requestId, bool accept) public
     {
@@ -251,7 +264,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable
         require(request.status == Status.Initial, "NFTProtect: already answered");
         require(request.timeout < block.timestamp, "NFTProtect: timeout");
         Original storage token = tokens[request.tokenId];
-        require(token.owner == _msgSender(), "NFTProtect: not the original owner");
+        require(isOriginalOwner(request.tokenId, _msgSender()), "NFTProtect: not the original owner");
         request.status = accept ? Status.Accepted : Status.Rejected;
         if (accept)
         {
