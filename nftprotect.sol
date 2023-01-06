@@ -275,7 +275,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
     /** @dev Transfer ownerhip for `tokenId` to the owner of wrapped token. Must
      *  be called by the current owner of `tokenId`.
      */
-    function adjustOwnership(uint256 tokenId) public
+    function adjustOwnership(uint256 tokenId, bytes calldata extraData) public payable
     {
         require(!_hasRequest(tokenId), "NFTProtect: already have request");
         require(isOriginalOwner(tokenId, _msgSender()), "NFTProtect: not the original owner");
@@ -291,7 +291,19 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
         }
         else
         {
-            // TODO! ask arbitrator
+            requestsCounter++;
+            uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
+            requests[requestsCounter] =
+                Request(
+                    ReqType.OwnershipAdjustment,
+                    tokenId,
+                    ownerOf(tokenId),
+                    0,
+                    Status.Disputed,
+                    disputeId);
+            tokenToRequest[tokenId] = requestsCounter;
+            disputeToRequest[disputeId] = requestsCounter;
+            emit OwnershipAdjustmentArbitrateAsked(requestsCounter, disputeId, extraData);
         }
     }
 
