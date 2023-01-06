@@ -47,5 +47,4 @@ contract UserIdentfyPoH is IUserIdentify
     {
         return isIdentified(user) ? 100 : 0;
     }
-
 }
