@@ -55,8 +55,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
 
     enum Security
     {
-        Regular,
-        Full
+        Protected,
+        UltraProtected
     }
 
     struct Original
@@ -204,7 +204,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
      */
     function wrap(ERC721 contr, uint256 tokenId, Security level, address payable referrer) public nonReentrant payable
     {
-        require(level == Security.Regular || userRegistry.scores(_msgSender()) >= scoreThreshold, "NFT Protect: not enough scores for this level of security");
+        require(level == Security.Protected || userRegistry.scores(_msgSender()) >= scoreThreshold, "NFT Protect: not enough scores for this level of security");
         require(userRegistry.isRegistered(_msgSender()), "NFTProtect: user must be registered");
         uint256 value = msg.value;
         require(value == feeWei, "NFTProtect: wrong payment");
