@@ -43,7 +43,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
     event AffiliatePercentChanged(uint256 percent);
     event Wrapped(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId);
     event Unwrapped(address indexed owner, uint256 indexed tokenId);
-    event ReferralPayment(address indexed from, address indexed to, uint256 amountWei);
+    event AffiliatePayment(address indexed from, address indexed to, uint256 amountWei);
     event OwnershipAdjusted(address indexed newowner, address indexed oldowner, uint256 tokenId);
     event OwnershipAdjustmentAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId);
     event OwnershipAdjustmentAnswered(uint256 indexed requestId, bool accept);
@@ -198,7 +198,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
             {
                 value -= reward;
                 referrer.sendValue(reward);
-                emit ReferralPayment(_msgSender(), referrer, reward);
+                emit AffiliatePayment(_msgSender(), referrer, reward);
             }
         }
         payable(owner()).sendValue(value);
