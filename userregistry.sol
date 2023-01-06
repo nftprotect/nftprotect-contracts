@@ -32,14 +32,15 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
 {
     event Deployed();
     event ArbitratorChanged(address arbitrator);
-    event DIDChanged(address did);
+    event DIDRegistered(address indexed did, string provider);
+    event DIDUnregistered(address indexed did);
     event SuccessorRequested(uint256 indexed disputeId, address indexed user, address indexed successor, bytes extraData);
     event SuccessorAppealed(uint256 indexed disputeId, bytes extraData);
     event SuccessorApproved(uint256 indexed disputeId);
     event SuccessorRejected(uint256 indexed disputeId);
 
     IArbitrator public   arbitrator;
-    IUserDID    public   did;
+    IUserDID[]  public   dids;
     uint256     constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
 
     mapping(address => address) public successors;
@@ -51,33 +52,63 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
     }
     mapping(uint256 => SuccessorRequest) public disputes;
 
-    constructor(address arb, address ddid)
+    constructor(IArbitrator arb, IUserDID did)
     {
         emit Deployed();
         setArbitrator(arb);
-        setDID(ddid);
+        registerDID(did);
     }
     
-    function setArbitrator(address arb) public onlyOwner
+    function setArbitrator(IArbitrator arb) public onlyOwner
     {
-        arbitrator = IArbitrator(arb);
-        emit ArbitratorChanged(arb);
+        arbitrator = arb;
+        emit ArbitratorChanged(address(arb));
     }
 
-    function setDID(address newdid) public onlyOwner
+    function registerDID(IUserDID did) public onlyOwner
     {
-        did = IUserDID(newdid);
-        emit DIDChanged(newdid);
+        dids.push(did);
+        emit DIDRegistered(address(did), did.provider());
+    }
+
+    function unregisterDID(IUserDID did) public onlyOwner
+    {
+        for(uint256 i = 0; i < dids.length; ++i)
+        {
+            if(dids[i] == did)
+            {
+                dids[i] = dids[dids.length - 1];
+                dids.pop();
+                emit DIDUnregistered(address(did));
+                break;
+            }
+        }
     }
 
     function isRegistered(address user) public view override returns(bool)
     {
-        return did.isIdentified(user);
+        for(uint256 i = 0; i < dids.length; ++i)
+        {
+            if(dids[i].isIdentified(user))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     function scores(address user) public view override returns(uint256)
     {
-        return did.scores(user);
+        uint256 scoresMax = 0;
+        for(uint256 i = 0; i < dids.length; ++i)
+        {
+            uint256 scoresCur = dids[i].scores(user);
+            if(scoresCur > scoresMax)
+            {
+                scoresMax = scoresCur;
+            }
+        }
+        return scoresMax;
     }
 
     function isSuccessor(address user, address successor) public view override returns(bool)
