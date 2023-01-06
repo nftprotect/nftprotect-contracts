@@ -42,4 +42,10 @@ contract UserIdentfyPoH is IUserIdentify
     {
         return IPoH(PoH).isRegistered(user);
     }
+
+    function scores(address user) public view override returns(uint256)
+    {
+        return isIdentified(user) ? 100 : 0;
+    }
+
 }

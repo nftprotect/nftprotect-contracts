@@ -75,6 +75,11 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         return identify.isIdentified(user);
     }
 
+    function scores(address user) public view override returns(uint256)
+    {
+        return identify.scores(user);
+    }
+
     function isSuccessor(address user, address successor) public view override returns(bool)
     {
         return successors[user] == successor;

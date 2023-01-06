@@ -26,4 +26,7 @@ interface IUserIdentify
     function provider() external view returns(string memory);
 
     function isIdentified(address user) external view returns(bool);
+
+    /** Return scores 0 to 100 */
+    function scores(address user) external view returns(uint256);
 }
