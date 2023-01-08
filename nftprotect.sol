@@ -29,6 +29,7 @@ import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/security/Reentr
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrator.sol";
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrable.sol";
 import "./iuserregistry.sol";
+import "./nftpcoupons.sol";
 
 
 contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, ReentrancyGuard
@@ -109,6 +110,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
     bool          public   burnOnAction;
     uint256       public   affiliatePercent;
     uint256       public   scoreThreshold;
+    NFTPCoupons   public   coupons;
 
     uint256       internal allow;
 
@@ -121,6 +123,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
         setBurnOnAction(true);
         setAffiliatePercent(20);
         setScoreThreshold(0);
+        coupons = new NFTPCoupons(address(this));
+        coupons.transferOwnership(_msgSender());
     }
 
     function setFee(uint256 fw) public onlyOwner
@@ -209,19 +213,26 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
         require(level == Security.Protected || userRegistry.scores(_msgSender()) >= scoreThreshold, "NFT Protect: not enough scores for this level of security");
         require(userRegistry.isRegistered(_msgSender()), "NFTProtect: user must be registered");
         uint256 value = msg.value;
-        require(value == feeWei, "NFTProtect: wrong payment");
-        if (referrer != address(0))
+        if (coupons.balanceOf(_msgSender()) > 0)
         {
-            require(referrer != _msgSender(), "NFTProtect: invalid referrer");
-            uint256 reward = value * affiliatePercent / 100;
-            if (reward > 0)
-            {
-                value -= reward;
-                referrer.sendValue(reward);
-                emit AffiliatePayment(_msgSender(), referrer, reward);
-            }
+            coupons.burnFrom(_msgSender(), 1);
         }
-        payable(owner()).sendValue(value);
+        else
+        {
+            require(value == feeWei, "NFTProtect: wrong payment");
+            if (referrer != address(0))
+            {
+                require(referrer != _msgSender(), "NFTProtect: invalid referrer");
+                uint256 reward = value * affiliatePercent / 100;
+                if (reward > 0)
+                {
+                    value -= reward;
+                    referrer.sendValue(reward);
+                    emit AffiliatePayment(_msgSender(), referrer, reward);
+                }
+            }
+            payable(owner()).sendValue(value);
+        }
         _mint(_msgSender(), ++tokensCounter);
         tokens[tokensCounter] = Original(contr, tokenId, _msgSender(), level);
         allow = 1;
