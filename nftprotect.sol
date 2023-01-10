@@ -233,7 +233,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
         else
         {
             require(value == feeWei, "NFTProtect: wrong payment");
-            if(referrers[_msgSender()] == address(0))
+            if(referrers[_msgSender()] == address(0) && referrer != address(0))
             {
                 referrers[_msgSender()] = referrer;
                 emit ReferrerSet(_msgSender(), referrer);
