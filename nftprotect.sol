@@ -42,10 +42,12 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
     event UserRegistryChanged(address ureg);
     event BurnOnActionChanged(bool boa);
     event ScoreThresholdChanged(uint256 threshold);
-    event AffiliatePercentChanged(uint256 percent);
+    event AffiliatePercentChanged(uint256 userPercent, uint256 partnerPercent);
     event Wrapped(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, Security level);
     event Unwrapped(address indexed owner, uint256 indexed tokenId);
     event AffiliatePayment(address indexed from, address indexed to, uint256 amountWei);
+    event ReferrerSet(address indexed user, address indexed referrer);
+    event PartnerSet(address indexed partnet, bool state);
     event BurnArbitrateAsked(uint256 indexed requestId, uint256 indexed disputeId, bytes extraData);
     event OwnershipAdjusted(address indexed newowner, address indexed oldowner, uint256 tokenId);
     event OwnershipAdjustmentAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId);
@@ -108,9 +110,13 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
     IArbitrator   public   arbitrator;
     IUserRegistry public   userRegistry;
     bool          public   burnOnAction;
-    uint256       public   affiliatePercent;
+    uint256       public   affiliateUserPercent;
+    uint256       public   affiliatePartnerPercent;
     uint256       public   scoreThreshold;
     NFTPCoupons   public   coupons;
+
+    mapping(address => address payable) public referrers;
+    mapping(address => bool)            public partners;
 
     uint256       internal allow;
 
@@ -121,7 +127,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
         setArbitrator(arb);
         setUserRegistry(ureg);
         setBurnOnAction(true);
-        setAffiliatePercent(20);
+        setAffiliatePercent(10, 20);
         setScoreThreshold(0);
         coupons = new NFTPCoupons(address(this));
         coupons.transferOwnership(_msgSender());
@@ -151,16 +157,23 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
         emit BurnOnActionChanged(boa);
     }
 
-    function setAffiliatePercent(uint256 percent) public onlyOwner
+    function setAffiliatePercent(uint256 userPercent, uint256 partnerPercent) public onlyOwner
     {
-        affiliatePercent = percent;
-        emit AffiliatePercentChanged(percent);
+        affiliateUserPercent = userPercent;
+        affiliatePartnerPercent = partnerPercent;
+        emit AffiliatePercentChanged(userPercent, partnerPercent);
     }
 
     function setScoreThreshold(uint256 threshold) public onlyOwner
     {
         scoreThreshold = threshold;
         emit ScoreThresholdChanged(threshold);
+    }
+
+    function setPartner(address partner, bool state) public onlyOwner
+    {
+        partners[partner] = state;
+        emit PartnerSet(partner, state);
     }
 
     /**
@@ -220,10 +233,17 @@ contract NFTProtect is ERC721, IERC721Receiver, IArbitrable, Ownable, Reentrancy
         else
         {
             require(value == feeWei, "NFTProtect: wrong payment");
+            if(referrers[_msgSender()] == address(0))
+            {
+                referrers[_msgSender()] = referrer;
+                emit ReferrerSet(_msgSender(), referrer);
+            }
+            referrer = referrers[_msgSender()];
             if (referrer != address(0))
             {
                 require(referrer != _msgSender(), "NFTProtect: invalid referrer");
-                uint256 reward = value * affiliatePercent / 100;
+                uint256 percent = partners[referrer] ? affiliatePartnerPercent : affiliateUserPercent;
+                uint256 reward = value * percent / 100;
                 if (reward > 0)
                 {
                     value -= reward;
