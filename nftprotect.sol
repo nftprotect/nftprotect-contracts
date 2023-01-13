@@ -43,6 +43,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     event ArbitratorChanged(address arbitrator);
     event UserRegistryChanged(address ureg);
     event BurnOnActionChanged(bool boa);
+    event BaseChanged(string base);
     event ScoreThresholdChanged(uint256 threshold);
     event AffiliatePercentChanged(uint256 userPercent, uint256 partnerPercent);
     event Wrapped721(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, Security level);
@@ -120,6 +121,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     IArbitrator   public   arbitrator;
     IUserRegistry public   userRegistry;
     bool          public   burnOnAction;
+    string        public   base;
     uint256       public   affiliateUserPercent;
     uint256       public   affiliatePartnerPercent;
     uint256       public   scoreThreshold;
@@ -139,6 +141,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
         setBurnOnAction(true);
         setAffiliatePercent(10, 20);
         setScoreThreshold(0);
+        setBase("");
         coupons = new NFTPCoupons(address(this));
         coupons.transferOwnership(_msgSender());
     }
@@ -165,6 +168,17 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     {
         burnOnAction = boa;
         emit BurnOnActionChanged(boa);
+    }
+
+    function setBase(string memory b) public onlyOwner
+    {
+        base=b;
+        emit BaseChanged(b);
+    }
+
+    function _baseURI() internal view override returns (string memory)
+    {
+        return base;
     }
 
     function setAffiliatePercent(uint256 userPercent, uint256 partnerPercent) public onlyOwner
@@ -215,10 +229,11 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     {
         require(_exists(tokenId), "NFTProtect: URI query for nonexistent token");
         Original memory token = tokens[tokenId];
-        return
-            token.standard == Standard.ERC721 ?
-                token.contr721.tokenURI(token.tokenId) :
-                token.contr1155.uri(token.tokenId);
+        return bytes(base).length==0 ?
+                token.standard == Standard.ERC721 ?
+                    token.contr721.tokenURI(token.tokenId) :
+                    token.contr1155.uri(token.tokenId) :
+                super.tokenURI(tokenId);
     }
 
     function originalOwnerOf(uint256 tokenId) public view returns(address)
