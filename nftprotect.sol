@@ -26,6 +26,7 @@ import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC721/ER
 import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
 import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol";
+import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/utils/Address.sol";
 import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrator.sol";
@@ -48,6 +49,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     event AffiliatePercentChanged(uint256 userPercent, uint256 partnerPercent);
     event Wrapped721(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, Security level);
     event Wrapped1155(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount, Security level);
+    event Wrapped20(address indexed owner, address contr, uint256 indexed tokenId, uint256 amount, Security level);
     event Unwrapped(address indexed owner, uint256 indexed tokenId);
     event AffiliatePayment(address indexed from, address indexed to, uint256 amountWei);
     event ReferrerSet(address indexed user, address indexed referrer);
@@ -70,7 +72,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     enum Standard
     {
         ERC721,
-        ERC1155
+        ERC1155,
+        ERC20
     }
 
     struct Original
@@ -78,8 +81,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
         Standard standard;
         ERC721   contr721;
         ERC1155  contr1155;
+        IERC20   contr20;
         uint256  tokenId;
-        uint256  amount; // ERC1155 only
+        uint256  amount; // ERC1155 and ERC20 only
         address  owner;
         Security level;
     }
@@ -232,7 +236,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
         return bytes(base).length==0 ?
                 token.standard == Standard.ERC721 ?
                     token.contr721.tokenURI(token.tokenId) :
-                    token.contr1155.uri(token.tokenId) :
+                    token.standard == Standard.ERC1155 ?
+                        token.contr1155.uri(token.tokenId) :
+                        "" :
                 super.tokenURI(tokenId);
     }
 
@@ -295,11 +301,11 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
      * contract. Mint wrapped token for owner.
      * If referrer is given, pay affiliatePercent of user payment to him.
      */
-    function wrap(ERC721 contr, uint256 tokenId, Security level, address payable referrer) public nonReentrant payable
+    function wrap721(ERC721 contr, uint256 tokenId, Security level, address payable referrer) public nonReentrant payable
     {
         _wrapBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
-        tokens[tokensCounter] = Original(Standard.ERC721, contr, ERC1155(address(0)), tokenId, 1, _msgSender(), level);
+        tokens[tokensCounter] = Original(Standard.ERC721, contr, ERC1155(address(0)), IERC20(address(0)), tokenId, 1, _msgSender(), level);
         allow = 1;
         contr.safeTransferFrom(_msgSender(), address(this), tokenId);
         allow = 0;
@@ -313,15 +319,31 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
      * contract. Mint wrapped token for owner.
      * If referrer is given, pay affiliatePercent of user payment to him.
      */
-    function wrap(ERC1155 contr, uint256 tokenId, uint256 amount, Security level, address payable referrer) public nonReentrant payable
+    function wrap1155(ERC1155 contr, uint256 tokenId, uint256 amount, Security level, address payable referrer) public nonReentrant payable
     {
         _wrapBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
-        tokens[tokensCounter] = Original(Standard.ERC1155, ERC721(address(0)), contr, tokenId, amount, _msgSender(), level);
+        tokens[tokensCounter] = Original(Standard.ERC1155, ERC721(address(0)), contr, IERC20(address(0)), tokenId, amount, _msgSender(), level);
         allow = 1;
         contr.safeTransferFrom(_msgSender(), address(this), tokenId, amount, '');
         allow = 0;
         emit Wrapped1155(_msgSender(), address(contr), tokenId, amount, tokensCounter, level);
+    }
+
+    /**
+     * @dev Wrap ERC20 tokens, issued by `contr` contract.
+     * Owner of token must approve 'amount' of tokens for NFTProtect contract to make
+     * it possible to transferFrom this tokens from the owner to NFTProtect
+     * contract. Mint wrapped token for owner.
+     * If referrer is given, pay affiliatePercent of user payment to him.
+     */
+    function wrap20(IERC20 contr, uint256 amount, Security level, address payable referrer) public nonReentrant payable
+    {
+        _wrapBefore(level, referrer);
+        _mint(_msgSender(), ++tokensCounter);
+        tokens[tokensCounter] = Original(Standard.ERC20, ERC721(address(0)), ERC1155(address(0)), contr, 0, amount, _msgSender(), level);
+        contr.transferFrom(_msgSender(), address(this), amount);
+        emit Wrapped20(_msgSender(), address(contr), amount, tokensCounter, level);
     }
 
     /**
@@ -363,9 +385,13 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
         {
             token.contr721.safeTransferFrom(address(this), owner, token.tokenId);
         }
-        else
+        else if(token.standard == Standard.ERC1155)
         {
             token.contr1155.safeTransferFrom(address(this), owner, token.tokenId, token.amount, '');
+        }
+        else // ERC20
+        {
+            token.contr20.transfer(owner, token.amount);
         }
         delete tokens[tokenId];
         delete requests[tokenToRequest[tokenId]];
