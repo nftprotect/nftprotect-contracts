@@ -65,8 +65,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
 
     enum Security
     {
-        Protected,
-        UltraProtected
+        Basic,
+        Ultra
     }
 
     enum Standard
@@ -262,7 +262,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
 
     function _wrapBefore(Security level, address payable referrer) internal
     {
-        require(level == Security.Protected || userRegistry.scores(_msgSender()) >= scoreThreshold, "NFT Protect: not enough scores for this level of security");
+        require(level == Security.Basic || userRegistry.scores(_msgSender()) >= scoreThreshold, "NFT Protect: not enough scores for this level of security");
         require(userRegistry.isRegistered(_msgSender()), "NFTProtect: user must be registered");
         uint256 value = msg.value;
         if (coupons.balanceOf(_msgSender()) > 0)
@@ -355,7 +355,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     {
         require(_isApprovedOrOwner(_msgSender(), tokenId), "NFTProtect: not the owner");
         require(isOriginalOwner(tokenId, _msgSender()), "NFTProtect: need to askOwnershipAdjustment first");
-        if(tokens[tokenId].level == Security.Protected)
+        if(tokens[tokenId].level == Security.Basic)
         {
             _burn(_msgSender(), tokenId);
         }
@@ -419,7 +419,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
         require(!_hasRequest(tokenId), "NFTProtect: already have request");
         require(isOriginalOwner(tokenId, _msgSender()), "NFTProtect: not the original owner");
         Original storage token = tokens[tokenId];
-        if(token.level == Security.Protected)
+        if(token.level == Security.Basic)
         {
             token.owner = ownerOf(tokenId);
             emit OwnershipAdjusted(token.owner, _msgSender(), tokenId);
@@ -483,7 +483,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
         require(isOriginalOwner(request.tokenId, _msgSender()), "NFTProtect: not the original owner");
         if (accept)
         {
-            if (token.level == Security.Protected)
+            if (token.level == Security.Basic)
             {
                 request.status = Status.Accepted;
                 token.owner = request.newowner;
