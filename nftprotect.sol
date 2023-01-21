@@ -40,7 +40,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     using Address for address payable;
 
     event Deployed();
-    event FeeChanged(uint256 feeWei);
+    event FeeChanged(Security indexed level, uint256 feeWei);
     event ArbitratorChanged(address arbitrator);
     event UserRegistryChanged(address ureg);
     event BurnOnActionChanged(bool boa);
@@ -119,7 +119,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     uint256       constant duration = 2 days;
     uint256       constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
 
-    uint256       public   feeWei;
+    mapping(Security => uint256) public feeWei;
     uint256       public   tokensCounter;
     uint256       public   requestsCounter;
     IArbitrator   public   arbitrator;
@@ -136,10 +136,11 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
 
     uint256       internal allow;
 
-    constructor(uint256 fw, address arb, address ureg) ERC721("NFT Protect", "wNFT")
+    constructor(address arb, address ureg) ERC721("NFT Protect", "wNFT")
     {
         emit Deployed();
-        setFee(fw);
+        setFee(Security.Basic, 0);
+        setFee(Security.Ultra, 0);
         setArbitrator(arb);
         setUserRegistry(ureg);
         setBurnOnAction(true);
@@ -150,10 +151,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
         coupons.transferOwnership(_msgSender());
     }
 
-    function setFee(uint256 fw) public onlyOwner
+    function setFee(Security level, uint256 fw) public onlyOwner
     {
-        feeWei = fw;
-        emit FeeChanged(feeWei);
+        feeWei[level] = fw;
+        emit FeeChanged(level, fw);
     }
 
     function setArbitrator(address arb) public onlyOwner
@@ -271,7 +272,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
         }
         else
         {
-            require(value == feeWei, "NFTProtect: wrong payment");
+            require(value == feeWei[level], "NFTProtect: wrong payment");
             if(referrers[_msgSender()] == address(0) && referrer != address(0))
             {
                 referrers[_msgSender()] = referrer;
@@ -290,7 +291,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
                     emit AffiliatePayment(_msgSender(), referrer, reward);
                 }
             }
-            payable(owner()).sendValue(value);
+            if (value > 0)
+            {
+                payable(owner()).sendValue(value);
+            }
         }
     }
 
