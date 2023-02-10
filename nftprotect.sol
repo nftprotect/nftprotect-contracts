@@ -482,7 +482,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     {
         Request storage request = requests[requestId];
         require(request.status == Status.Initial, "NFTProtect: already answered");
-        require(request.timeout < block.timestamp, "NFTProtect: timeout");
+        require(request.timeout > block.timestamp, "NFTProtect: timeout");
         Original storage token = tokens[request.tokenId];
         require(isOriginalOwner(request.tokenId, _msgSender()), "NFTProtect: not the original owner");
         if (accept)
@@ -521,7 +521,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     {
         Request storage request = requests[requestId];
         require(request.timeout > 0, "NFTProtect: unknown requestId");
-        require(request.timeout >= block.timestamp, "NFTProtect: wait for answer more");
+        require(request.timeout <= block.timestamp, "NFTProtect: wait for answer more");
         require(request.status == Status.Initial || request.status == Status.Rejected, "NFTProtect: wrong status");
         require(_isApprovedOrOwner(_msgSender(), request.tokenId), "NFTProtect: not the owner");
         request.disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
