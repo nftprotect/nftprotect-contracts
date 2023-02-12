@@ -61,6 +61,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     event OwnershipAdjustmentArbitrateAsked(uint256 indexed requestId, uint256 indexed disputeId, bytes extraData);
     event OwnershipAdjustmentAppealed(uint256 indexed requestId, bytes extraData);
     event OwnershipRestoreAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId);
+    event OwnershipRestoreAppealed(uint256 indexed requestId, bytes extraData);
     event OwnershipRestoreAnswered(uint256 indexed requestId, bool accept);
 
     enum Security
@@ -563,6 +564,16 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
         disputeToRequest[disputeId] = requestsCounter;
         tokenToRequest[tokenId] = requestsCounter;
         emit OwnershipRestoreAsked(requestsCounter, _msgSender(), ownerOf(tokenId), tokenId);
+    }
+
+    function ownershipRestoreAppeal(uint256 requestId, bytes calldata extraData) public payable
+    {
+        Request storage request = requests[requestId];
+        require(request.reqtype == ReqType.OwnershipRestore, "NFTProtect: invalid request");
+        require(request.status == Status.Disputed, "NFTProtect: wrong status");
+        require(isOriginalOwner(request.tokenId, _msgSender()), "NFTProtect: not the owner of the original token");
+        arbitrator.appeal{value: msg.value}(request.disputeId, extraData);
+        emit OwnershipRestoreAppealed(requestId, extraData);
     }
 
     /**
