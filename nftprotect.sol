@@ -211,19 +211,19 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
      */
     function onERC721Received(address /*operator*/, address /*from*/, uint256 /*tokenId*/, bytes calldata /*data*/) public view override returns (bytes4)
     {
-        require(allow == 1, "NFTProtect: illegal transfer");
+        require(allow == 1);
         return this.onERC721Received.selector;
     }
 
     function onERC1155Received(address /*operator*/, address /*from*/, uint256 /*id*/, uint256 /*value*/, bytes calldata /*data*/) public view override returns (bytes4)
     {
-        require(allow == 1, "NFTProtect: illegal transfer");
+        require(allow == 1);
         return this.onERC1155Received.selector;
     }
 
     function onERC1155BatchReceived(address /*operator*/, address /*from*/, uint256[] calldata /*ids*/, uint256[] calldata /*values*/, bytes calldata /*data*/) public view override returns (bytes4)
     {
-        require(allow == 1, "NFTProtect: illegal transfer");
+        require(allow == 1);
         return this.onERC1155BatchReceived.selector;
     }
 
@@ -233,7 +233,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
      */
     function tokenURI(uint256 tokenId) public view override returns (string memory)
     {
-        require(_exists(tokenId), "NFTProtect: URI query for nonexistent token");
+        require(_exists(tokenId), "NFTProtect: nonexistent token");
         Original memory token = tokens[tokenId];
         return bytes(base).length==0 ?
                 token.standard == Standard.ERC721 ?
@@ -265,7 +265,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     function _wrapBefore(Security level, address payable referrer) internal
     {
         require(level == Security.Basic || userRegistry.scores(_msgSender()) >= scoreThreshold, "NFT Protect: not enough scores for this level of security");
-        require(userRegistry.isRegistered(_msgSender()), "NFTProtect: user must be registered");
+        require(userRegistry.isRegistered(_msgSender()), "NFTProtect: unregistered user");
         uint256 value = msg.value;
         if (coupons.balanceOf(_msgSender()) > 0)
         {
@@ -308,6 +308,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
      */
     function wrap721(ERC721 contr, uint256 tokenId, Security level, address payable referrer) public nonReentrant payable
     {
+        require(address(contr) != address(this), "NFTProtect: double wrap");
         _wrapBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
         tokens[tokensCounter] = Original(Standard.ERC721, contr, ERC1155(address(0)), IERC20(address(0)), tokenId, 1, _msgSender(), level);
