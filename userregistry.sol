@@ -21,6 +21,7 @@ along with the UserRegistry Contract. If not, see <http://www.gnu.org/licenses/>
 
 pragma solidity ^0.8.0;
 
+import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/utils/Address.sol";
 import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrator.sol";
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrable.sol";
@@ -30,8 +31,14 @@ import "./iuserdid.sol";
 
 contract UserRegistry is Ownable, IArbitrable, IUserRegistry
 {
+    using Address for address payable;
+
     event Deployed();
     event ArbitratorChanged(address arbitrator);
+    event AffiliatePercentChanged(uint256 userPercent, uint256 partnerPercent);
+    event AffiliatePayment(address indexed from, address indexed to, uint256 amountWei);
+    event ReferrerSet(address indexed user, address indexed referrer);
+    event PartnerSet(address indexed partnet, bool state);
     event DIDRegistered(address indexed did, string provider);
     event DIDUnregistered(address indexed did);
     event SuccessorRequested(uint256 indexed disputeId, address indexed user, address indexed successor, bytes extraData);
@@ -39,11 +46,22 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
     event SuccessorApproved(uint256 indexed disputeId);
     event SuccessorRejected(uint256 indexed disputeId);
 
+    modifier onlyNFTProtect()
+    {
+        require(_msgSender() == nftprotect);
+        _;
+    }
+
+    address     public   nftprotect;
     IArbitrator public   arbitrator;
     IUserDID[]  public   dids;
+    uint256     public   affiliateUserPercent;
+    uint256     public   affiliatePartnerPercent;
     uint256     constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
 
-    mapping(address => address) public successors;
+    mapping(address => address)         public successors;
+    mapping(address => address payable) public referrers;
+    mapping(address => bool)            public partners;
 
     struct SuccessorRequest
     {
@@ -52,9 +70,11 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
     }
     mapping(uint256 => SuccessorRequest) public disputes;
 
-    constructor(IArbitrator arb, IUserDID did)
+    constructor(IArbitrator arb, IUserDID did, address nftprotectaddr)
     {
         emit Deployed();
+        nftprotect = nftprotectaddr;
+        setAffiliatePercent(10, 20);
         setArbitrator(arb);
         registerDID(did);
     }
@@ -63,6 +83,46 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
     {
         arbitrator = arb;
         emit ArbitratorChanged(address(arb));
+    }
+
+    function setAffiliatePercent(uint256 userPercent, uint256 partnerPercent) public onlyOwner
+    {
+        affiliateUserPercent = userPercent;
+        affiliatePartnerPercent = partnerPercent;
+        emit AffiliatePercentChanged(userPercent, partnerPercent);
+    }
+
+    function setPartner(address partner, bool state) public onlyOwner
+    {
+        partners[partner] = state;
+        emit PartnerSet(partner, state);
+    }
+
+    function processPayment(address user, address payable referrer) public override payable onlyNFTProtect
+    {
+        if (referrers[user] == address(0) && referrer != address(0))
+        {
+            referrers[user] = referrer;
+            emit ReferrerSet(user, referrer);
+        }
+        referrer = referrers[user];
+        uint256 value = msg.value;
+        if (referrer != address(0))
+        {
+            require(referrer != user, "UserRegistry: invalid referrer");
+            uint256 percent = partners[referrer] ? affiliatePartnerPercent : affiliateUserPercent;
+            uint256 reward = value * percent / 100;
+            if (reward > 0)
+            {
+                value -= reward;
+                referrer.sendValue(reward);
+                emit AffiliatePayment(user, referrer, reward);
+            }
+        }
+        if (value > 0)
+        {
+            payable(owner()).sendValue(value);
+        }
     }
 
     function registerDID(IUserDID did) public onlyOwner

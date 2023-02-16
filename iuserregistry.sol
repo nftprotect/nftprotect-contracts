@@ -32,4 +32,6 @@ interface IUserRegistry
     function hasSuccessor(address user) external view returns(bool);
 
     function successorOf(address user) external view returns(address);
+
+    function processPayment(address user, address payable referrer) external payable;
 }

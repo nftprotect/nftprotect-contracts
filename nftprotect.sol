@@ -46,14 +46,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     event BurnOnActionChanged(bool boa);
     event BaseChanged(string base);
     event ScoreThresholdChanged(uint256 threshold);
-    event AffiliatePercentChanged(uint256 userPercent, uint256 partnerPercent);
     event Wrapped721(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, Security level);
     event Wrapped1155(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount, Security level);
     event Wrapped20(address indexed owner, address contr, uint256 indexed tokenId, uint256 amount, Security level);
     event Unwrapped(address indexed dst, uint256 indexed tokenId);
-    event AffiliatePayment(address indexed from, address indexed to, uint256 amountWei);
-    event ReferrerSet(address indexed user, address indexed referrer);
-    event PartnerSet(address indexed partnet, bool state);
     event BurnArbitrateAsked(uint256 indexed requestId, uint256 indexed disputeId, address dst, uint256 indexed tokenId, bytes extraData, address arbitrator);
     event OwnershipAdjusted(address indexed newowner, address indexed oldowner, uint256 indexed tokenId);
     event OwnershipAdjustmentAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId, address arbitrator);
@@ -114,12 +110,13 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
         IArbitrator arbitrator;
         uint256     disputeId;
     }
-    mapping(uint256 => Request) public requests;
-    mapping(uint256 => uint256) public tokenToRequest;
-    mapping(uint256 => uint256) public disputeToRequest;
+    mapping(uint256 => Request)  public requests;
+    mapping(uint256 => uint256)  public tokenToRequest;
+    mapping(uint256 => uint256)  public disputeToRequest;
+    mapping(Security => uint256) public feeWei;
     
-    uint256       constant duration = 2 days;
-    uint256       constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
+    uint256            constant duration = 2 days;
+    uint256            constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
 
     uint256            public   tokensCounter;
     uint256            public   requestsCounter;
@@ -127,16 +124,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     IUserRegistry      public   userRegistry;
     bool               public   burnOnAction;
     string             public   base;
-    uint256            public   affiliateUserPercent;
-    uint256            public   affiliatePartnerPercent;
     uint256            public   scoreThreshold;
     NFTPCoupons        public   coupons;
-
-    mapping(Security => uint256)        public feeWei;
-    mapping(address => address payable) public referrers;
-    mapping(address => bool)            public partners;
-
-    uint256       internal allow;
+    uint256            internal allow;
 
     constructor(address areg, address ureg) ERC721("NFT Protect", "wNFT")
     {
@@ -146,7 +136,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
         setArbitratorRegistry(areg);
         setUserRegistry(ureg);
         setBurnOnAction(true);
-        setAffiliatePercent(10, 20);
         setScoreThreshold(0);
         setBase("");
         coupons = new NFTPCoupons(address(this));
@@ -188,23 +177,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
         return base;
     }
 
-    function setAffiliatePercent(uint256 userPercent, uint256 partnerPercent) public onlyOwner
-    {
-        affiliateUserPercent = userPercent;
-        affiliatePartnerPercent = partnerPercent;
-        emit AffiliatePercentChanged(userPercent, partnerPercent);
-    }
-
     function setScoreThreshold(uint256 threshold) public onlyOwner
     {
         scoreThreshold = threshold;
         emit ScoreThresholdChanged(threshold);
-    }
-
-    function setPartner(address partner, bool state) public onlyOwner
-    {
-        partners[partner] = state;
-        emit PartnerSet(partner, state);
     }
 
     /**
@@ -267,36 +243,14 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     {
         require(level == Security.Basic || userRegistry.scores(_msgSender()) >= scoreThreshold, "NFT Protect: not enough scores");
         require(userRegistry.isRegistered(_msgSender()), "NFTProtect: unregistered");
-        uint256 value = msg.value;
         if (coupons.balanceOf(_msgSender()) > 0)
         {
             coupons.burnFrom(_msgSender(), 1);
         }
         else
         {
-            require(value == feeWei[level], "NFTProtect: wrong payment");
-            if(referrers[_msgSender()] == address(0) && referrer != address(0))
-            {
-                referrers[_msgSender()] = referrer;
-                emit ReferrerSet(_msgSender(), referrer);
-            }
-            referrer = referrers[_msgSender()];
-            if (referrer != address(0))
-            {
-                require(referrer != _msgSender(), "NFTProtect: invalid referrer");
-                uint256 percent = partners[referrer] ? affiliatePartnerPercent : affiliateUserPercent;
-                uint256 reward = value * percent / 100;
-                if (reward > 0)
-                {
-                    value -= reward;
-                    referrer.sendValue(reward);
-                    emit AffiliatePayment(_msgSender(), referrer, reward);
-                }
-            }
-            if (value > 0)
-            {
-                payable(owner()).sendValue(value);
-            }
+            require(msg.value == feeWei[level], "NFTProtect: wrong payment");
+            userRegistry.processPayment{value: msg.value}(_msgSender(), referrer);
         }
     }
 
