@@ -26,6 +26,7 @@ import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/access/Ownable.
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrator.sol";
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrable.sol";
 import "./iuserregistry.sol";
+import "./arbitratorregistry.sol";
 import "./iuserdid.sol";
 
 
@@ -34,14 +35,14 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
     using Address for address payable;
 
     event Deployed();
-    event ArbitratorChanged(address arbitrator);
+    event ArbitratorRegistryChanged(address areg);
     event AffiliatePercentChanged(uint256 userPercent, uint256 partnerPercent);
     event AffiliatePayment(address indexed from, address indexed to, uint256 amountWei);
     event ReferrerSet(address indexed user, address indexed referrer);
     event PartnerSet(address indexed partnet, bool state);
     event DIDRegistered(address indexed did, string provider);
     event DIDUnregistered(address indexed did);
-    event SuccessorRequested(uint256 indexed disputeId, address indexed user, address indexed successor, bytes extraData);
+    event SuccessorRequested(uint256 indexed disputeId, address indexed user, address indexed successor, bytes extraData, uint256 arbitratorId);
     event SuccessorAppealed(uint256 indexed disputeId, bytes extraData);
     event SuccessorApproved(uint256 indexed disputeId);
     event SuccessorRejected(uint256 indexed disputeId);
@@ -52,12 +53,12 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         _;
     }
 
-    address     public   nftprotect;
-    IArbitrator public   arbitrator;
-    IUserDID[]  public   dids;
-    uint256     public   affiliateUserPercent;
-    uint256     public   affiliatePartnerPercent;
-    uint256     constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
+    address            public   nftprotect;
+    ArbitratorRegistry public   arbitratorRegistry;
+    IUserDID[]         public   dids;
+    uint256            public   affiliateUserPercent;
+    uint256            public   affiliatePartnerPercent;
+    uint256            constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
 
     mapping(address => address)         public successors;
     mapping(address => address payable) public referrers;
@@ -65,24 +66,25 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
 
     struct SuccessorRequest
     {
-        address user;
-        address successor;
+        address     user;
+        address     successor;
+        IArbitrator arbitrator;
     }
     mapping(uint256 => SuccessorRequest) public disputes;
 
-    constructor(IArbitrator arb, IUserDID did, address nftprotectaddr)
+    constructor(address areg, IUserDID did, address nftprotectaddr)
     {
         emit Deployed();
         nftprotect = nftprotectaddr;
         setAffiliatePercent(10, 20);
-        setArbitrator(arb);
+        setArbitratorRegistry(areg);
         registerDID(did);
     }
     
-    function setArbitrator(IArbitrator arb) public onlyOwner
+    function setArbitratorRegistry(address areg) public onlyOwner
     {
-        arbitrator = arb;
-        emit ArbitratorChanged(address(arb));
+        arbitratorRegistry = ArbitratorRegistry(areg);
+        emit ArbitratorRegistryChanged(areg);
     }
 
     function setAffiliatePercent(uint256 userPercent, uint256 partnerPercent) public onlyOwner
@@ -186,25 +188,26 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         return successors[user];
     }
 
-    function successorRequest(address user, bytes calldata extraData) public payable returns(uint256)
+    function successorRequest(address user, bytes calldata extraData, uint256 arbitratorId) public payable returns(uint256)
     {
         require(isRegistered(user), "UserRegistry: Unregistered user");
+        IArbitrator arbitrator = arbitratorRegistry.arbitrator(arbitratorId);
         uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
-        disputes[disputeId] = SuccessorRequest(user, _msgSender());
-        emit SuccessorRequested(disputeId, user, _msgSender(), extraData);
+        disputes[disputeId] = SuccessorRequest(user, _msgSender(), arbitrator);
+        emit SuccessorRequested(disputeId, user, _msgSender(), extraData, arbitratorId);
         return disputeId;
     }
 
     function successorRequestAppeal(uint256 disputeId, bytes calldata extraData) public payable
     {
         require(disputes[disputeId].successor == _msgSender(), "UserRegistry: not the owner of the request");
-        arbitrator.appeal{value: msg.value}(disputeId, extraData);
+        disputes[disputeId].arbitrator.appeal{value: msg.value}(disputeId, extraData);
         emit SuccessorAppealed(disputeId, extraData);
     }
 
     function rule(uint256 disputeId, uint256 ruling) external override
     {
-        require(_msgSender() == address(arbitrator), "UserRegistry: not the arbitrator");
+        require(_msgSender() == address(disputes[disputeId].arbitrator), "UserRegistry: invalid arbitrator");
         require(ruling <= numberOfRulingOptions, "UserRegistry: invalid ruling");
         SuccessorRequest memory request = disputes[disputeId];
         if (ruling == 1)
