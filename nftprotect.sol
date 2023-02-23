@@ -452,7 +452,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     {
         Request storage request = requests[requestId];
         require(request.status == Status.Initial, "NFTProtect: answered");
-        require(request.timeout > block.timestamp, "NFTProtect: timeout");
+    //    require(request.timeout > block.timestamp, "NFTProtect: timeout");
         Original storage token = tokens[request.tokenId];
         require(isOriginalOwner(request.tokenId, _msgSender()), "NFTProtect: not owner");
         if (accept)
@@ -503,7 +503,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     function ownershipAdjustmentAppeal(uint256 requestId, bytes calldata extraData) public payable
     {
         Request storage request = requests[requestId];
-        require(request.timeout > 0, "NFTProtect: unknown requestId");
+        require(request.timeout > 0, "NFTProtect: unknown request");
         require(request.status == Status.Disputed, "NFTProtect: wrong status");
         require(_isApprovedOrOwner(_msgSender(), request.tokenId), "NFTProtect: not owner");
         request.arbitrator.appeal{value: msg.value}(request.disputeId, extraData);
@@ -599,7 +599,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
                 userRegistry.isSuccessor(ownerOf(tokenId), spender);
     }
 
-    function _beforeTokenTransfer(address /*from*/, address to, uint256 tokenId) internal view override
+    function _beforeTokenTransfer(address /*from*/, address to, uint256 tokenId) internal view
     {
         require(userRegistry.isRegistered(to), "NFTProtect: unregistered user");
         require(!_hasRequest(tokenId), "NFTProtect: under dispute");
