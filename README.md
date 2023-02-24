@@ -6,17 +6,14 @@ This repository contains the smart contracts for NFT Protect. The system consist
 
 ## Contracts
 
+- `NftProtect.sol`: the main NFT Protect contract.
+
 - `ArbitratorRegistry.sol`: contract for managing arbitrators.
 
-- `IUserDid.sol`: interface for the user DID contract.
-
-- `UserDidPoh.sol`: contract for proving user identity.
+- `UserRegistry.sol`: contract for managing user accounts.
 
 - `IUserRegistry.sol`: interface for the user registry contract.
 
-- `NftProtect.sol`: the main NFT Protect contract.
-
-- `UserRegistry.sol`: contract for managing user accounts.
 
 ## Installation
 
@@ -46,6 +43,18 @@ To use the NFT Protect system, follow these steps:
 2. Prove your identity using the `UserDidPoh` contract.
 3. Protect your NFT using the `NftProtect` contract.
 4. If a dispute arises, the `ArbitratorRegistry` contract will be used to resolve it.
+
+## Deployment Addresses
+
+### Goerli testnet
+
+| Contract  | Address |
+| ------------- | ------------- |
+| `NftProtect.sol` | [0x1dF68B8dC2B4ECe16D240b4A7FE7158a5b2aFc0A](https://goerli.etherscan.io/address/0x1dF68B8dC2B4ECe16D240b4A7FE7158a5b2aFc0A) |
+| `ArbitratorRegistry.sol` | [0x43D6b852d6f02992f636e38427EB5835b69Acfe3](https://goerli.etherscan.io/address/0x43D6b852d6f02992f636e38427EB5835b69Acfe3)  |
+| `UserRegistry.sol` | [0xC27C86529267a90abe7e443419657B8CbE33AAB0](https://goerli.etherscan.io/address/0xC27C86529267a90abe7e443419657B8CbE33AAB0) |
+| `IUserRegistry.sol` | [0xC27C86529267a90abe7e443419657B8CbE33AAB0](https://goerli.etherscan.io/address/0xC27C86529267a90abe7e443419657B8CbE33AAB0) |
+
 
 ## License
 
