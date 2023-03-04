@@ -21,8 +21,8 @@ along with the ArbitratorRegistry Contract. If not, see <http://www.gnu.org/lice
 
 pragma solidity ^0.8.0;
 
-import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/access/Ownable.sol";
-import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrator.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@kleros/erc-792/contracts/IArbitrator.sol";
 
 
 contract ArbitratorRegistry is Ownable

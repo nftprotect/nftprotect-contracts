@@ -21,15 +21,15 @@ along with the NFTProtect Contract. If not, see <http://www.gnu.org/licenses/>.
 
 pragma solidity ^0.8.0;
 
-import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/access/Ownable.sol";
-import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
-import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
-import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
-import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol";
-import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/utils/Address.sol";
-import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
-import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@kleros/erc-792/contracts/IArbitrable.sol";
 import "./iuserregistry.sol";
 import "./arbitratorregistry.sol";
 import "./nftpcoupons.sol";
@@ -452,7 +452,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     {
         Request storage request = requests[requestId];
         require(request.status == Status.Initial, "NFTProtect: answered");
-        require(request.timeout > block.timestamp, "NFTProtect: timeout");
+    //    require(request.timeout > block.timestamp, "NFTProtect: timeout");
         Original storage token = tokens[request.tokenId];
         require(isOriginalOwner(request.tokenId, _msgSender()), "NFTProtect: not owner");
         if (accept)
@@ -503,7 +503,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
     function ownershipAdjustmentAppeal(uint256 requestId, bytes calldata extraData) public payable
     {
         Request storage request = requests[requestId];
-        require(request.timeout > 0, "NFTProtect: unknown requestId");
+        require(request.timeout > 0, "NFTProtect: unknown request");
         require(request.status == Status.Disputed, "NFTProtect: wrong status");
         require(_isApprovedOrOwner(_msgSender(), request.tokenId), "NFTProtect: not owner");
         request.arbitrator.appeal{value: msg.value}(request.disputeId, extraData);
@@ -599,7 +599,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, O
                 userRegistry.isSuccessor(ownerOf(tokenId), spender);
     }
 
-    function _beforeTokenTransfer(address /*from*/, address to, uint256 tokenId) internal view override
+    function _beforeTokenTransfer(address /*from*/, address to, uint256 tokenId) internal view
     {
         require(userRegistry.isRegistered(to), "NFTProtect: unregistered user");
         require(!_hasRequest(tokenId), "NFTProtect: under dispute");

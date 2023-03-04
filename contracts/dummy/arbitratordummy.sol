@@ -21,9 +21,9 @@ along with the ArbitratorDummy Contract. If not, see <http://www.gnu.org/license
 
 pragma solidity ^0.8.0;
 
-import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/utils/Address.sol";
-import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/access/Ownable.sol";
-import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrator.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@kleros/erc-792/contracts/IArbitrator.sol";
 
 
 contract ArbitratorDummy is Ownable, IArbitrator

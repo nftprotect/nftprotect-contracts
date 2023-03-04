@@ -21,8 +21,8 @@ along with the UserDIDDummy Contract. If not, see <http://www.gnu.org/licenses/>
 
 pragma solidity ^0.8.0;
 
-import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/access/Ownable.sol";
-import "./iuserdid.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "../iuserdid.sol";
 
 
 contract UserDIDDummy is Ownable, IUserDID
