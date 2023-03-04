@@ -25,12 +25,13 @@ import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/utils/Address.s
 import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrator.sol";
 import "github.com/kleros/erc-792/blob/v8.0.0/contracts/IArbitrable.sol";
+import "github.com/kleros/erc-792/blob/v8.0.0/contracts/erc-1497/IEvidence.sol";
 import "./iuserregistry.sol";
 import "./arbitratorregistry.sol";
 import "./iuserdid.sol";
 
 
-contract UserRegistry is Ownable, IArbitrable, IUserRegistry
+contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
 {
     using Address for address payable;
 
@@ -53,6 +54,7 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         _;
     }
 
+    uint256            public   metaEvidenceCounter;
     address            public   nftprotect;
     ArbitratorRegistry public   arbitratorRegistry;
     IUserDID[]         public   dids;
@@ -69,6 +71,7 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         address     user;
         address     successor;
         IArbitrator arbitrator;
+        uint256     evidenceId;
     }
     mapping(uint256 => SuccessorRequest) public disputes;
 
@@ -188,13 +191,16 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         return successors[user];
     }
 
-    function successorRequest(address user, bytes calldata extraData, uint256 arbitratorId) public payable returns(uint256)
+    function successorRequest(address user, bytes calldata extraData, string memory evidence, uint256 arbitratorId) public payable returns(uint256)
     {
         require(isRegistered(user), "UserRegistry: Unregistered user");
         IArbitrator arbitrator = arbitratorRegistry.arbitrator(arbitratorId);
+        metaEvidenceCounter++;
+        emit MetaEvidence(metaEvidenceCounter, evidence);
         uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
-        disputes[disputeId] = SuccessorRequest(user, _msgSender(), arbitrator);
+        disputes[disputeId] = SuccessorRequest(user, _msgSender(), arbitrator, metaEvidenceCounter);
         emit SuccessorRequested(disputeId, user, _msgSender(), extraData, arbitratorId);
+        emit Dispute(arbitrator, disputeId, metaEvidenceCounter, metaEvidenceCounter);
         return disputeId;
     }
 
@@ -203,6 +209,13 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         require(disputes[disputeId].successor == _msgSender(), "UserRegistry: not the owner of the request");
         disputes[disputeId].arbitrator.appeal{value: msg.value}(disputeId, extraData);
         emit SuccessorAppealed(disputeId, extraData);
+    }
+
+    function submitEvidence(uint256 disputeId, string memory evidence) public
+    {
+        require(disputes[disputeId].successor == _msgSender(), "UserRegistry: not the owner of the request");
+        SuccessorRequest memory request = disputes[disputeId];
+        emit Evidence(request.arbitrator, request.evidenceId, _msgSender(), evidence);
     }
 
     function rule(uint256 disputeId, uint256 ruling) external override
@@ -219,6 +232,7 @@ contract UserRegistry is Ownable, IArbitrable, IUserRegistry
         {
             emit SuccessorRejected(disputeId);
         }
+        emit Ruling(request.arbitrator, disputeId, ruling);
         delete disputes[disputeId];
     }
 }
