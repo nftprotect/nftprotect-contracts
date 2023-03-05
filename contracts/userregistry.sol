@@ -25,7 +25,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@kleros/erc-792/contracts/IArbitrator.sol";
 import "@kleros/erc-792/contracts/IArbitrable.sol";
-import "@kleros/erc-792/blob/v8.0.0/contracts/erc-1497/IEvidence.sol";
+import "@kleros/erc-792/contracts/erc-1497/IEvidence.sol";
 import "./iuserregistry.sol";
 import "./arbitratorregistry.sol";
 import "./iuserdid.sol";
@@ -213,7 +213,7 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
 
     function submitEvidence(uint256 disputeId, string memory evidence) public
     {
-        require(disputes[disputeId].successor == _msgSender(), "UserRegistry: not the owner of the request");
+        //require(disputes[disputeId].successor == _msgSender(), "UserRegistry: not the owner of the request");
         SuccessorRequest memory request = disputes[disputeId];
         emit Evidence(request.arbitrator, request.evidenceId, _msgSender(), evidence);
     }
