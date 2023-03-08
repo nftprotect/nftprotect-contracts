@@ -507,8 +507,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     {
         Request storage request = requests[requestId];
         require(request.timeout > 0, "NFTProtect: unknown request");
-        require(request.timeout <= block.timestamp, "NFTProtect: wait for answer");
         require(request.status == Status.Initial || request.status == Status.Rejected, "NFTProtect: wrong status");
+        require(request.status == Status.Rejected || request.timeout <= block.timestamp, "NFTProtect: wait for answer");
         require(_isApprovedOrOwner(_msgSender(), request.tokenId), "NFTProtect: not owner");
         metaEvidenceCounter++;
         emit MetaEvidence(metaEvidenceCounter, evidence);
