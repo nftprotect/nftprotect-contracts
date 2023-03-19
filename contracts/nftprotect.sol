@@ -316,7 +316,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
      * The owner of the original token and the owner of wrapped token must
      * be the same. If not, need to call askOwnershipAdjustment() first.
      */
-    function burn(uint256 tokenId, string memory evidence, address dst, uint256 arbitratorId) public payable
+    function burn(uint256 tokenId, address dst, uint256 arbitratorId) public payable
     {
         require(_isApprovedOrOwner(_msgSender(), tokenId), "NFTP: not owner");
         require(isOriginalOwner(tokenId, _msgSender()), "NFTP: need to askOwnershipAdjustment");
@@ -328,13 +328,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
         {
             require(dst != address(0) && dst != _msgSender(), "NFTP: bad dst");
             requestsCounter++;
-            metaEvidenceCounter++;
-            emit MetaEvidence(metaEvidenceCounter, evidence);
             IArbitrator arbitrator;
             bytes memory extraData;
             (arbitrator, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
             uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
-            emit Dispute(arbitrator, disputeId, metaEvidenceCounter, metaEvidenceCounter);
             requests[requestsCounter] =
                 Request(
                     ReqType.Burn,
@@ -345,7 +342,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
                     arbitrator,
                     extraData,
                     disputeId,
-                    metaEvidenceCounter);
+                    0);
             tokenToRequest[tokenId] = requestsCounter;
             disputeToRequest[disputeId] = requestsCounter;
             emit BurnArbitrateAsked(requestsCounter, disputeId, dst, tokenId, address(arbitrator));
@@ -389,7 +386,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     /** @dev Transfer ownerhip for `tokenId` to the owner of wrapped token. Must
      *  be called by the current owner of `tokenId`.
      */
-    function adjustOwnership(uint256 tokenId, string memory evidence, uint256 arbitratorId) public payable
+    function adjustOwnership(uint256 tokenId, uint256 arbitratorId) public payable
     {
         require(!_hasRequest(tokenId), "NFTP: have request");
         require(isOriginalOwner(tokenId, _msgSender()), "NFTP: not owner");
@@ -406,13 +403,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
         else
         {
             requestsCounter++;
-            metaEvidenceCounter++;
-            emit MetaEvidence(metaEvidenceCounter, evidence);
             IArbitrator arbitrator;
             bytes memory extraData;
             (arbitrator, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
             uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
-            emit Dispute(arbitrator, disputeId, metaEvidenceCounter, metaEvidenceCounter);
             requests[requestsCounter] =
                 Request(
                     ReqType.OwnershipAdjustment,
@@ -423,7 +417,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
                     arbitrator,
                     extraData,
                     disputeId,
-                    metaEvidenceCounter);
+                    0);
             tokenToRequest[tokenId] = requestsCounter;
             disputeToRequest[disputeId] = requestsCounter;
             emit OwnershipAdjustmentArbitrateAsked(requestsCounter, disputeId, ownerOf(tokenId), tokenId, address(arbitrator));
@@ -470,7 +464,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
      * @dev Must be called by the owner of the original token to confirm or reject
      * ownership transfer to the new owner of the wrapped token.
      */
-    function answerOwnershipAdjustment(uint256 requestId, bool accept, string memory evidence) public payable
+    function answerOwnershipAdjustment(uint256 requestId, bool accept) public payable
     {
         Request storage request = requests[requestId];
         require(request.status == Status.Initial, "NFTP: answered");
@@ -491,13 +485,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
             }
             else
             {
-                metaEvidenceCounter++;
-                emit MetaEvidence(metaEvidenceCounter, evidence);
                 request.disputeId = request.arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, request.extraData);
                 request.status = Status.Disputed;
-                request.evidenceId = metaEvidenceCounter;
                 disputeToRequest[request.disputeId] = requestId;
-                emit Dispute(request.arbitrator, request.disputeId, metaEvidenceCounter, metaEvidenceCounter);
                 emit OwnershipAdjustmentArbitrateAsked(requestId, request.disputeId, request.newowner, request.tokenId, address(request.arbitrator));
             }
         }
@@ -513,19 +503,15 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
      * the original token didn't answer or rejected ownership transfer.
      * This function create dispute on external ERC-792 compatible arbitrator.
      */
-    function askOwnershipAdjustmentArbitrate(uint256 requestId, string memory evidence) public payable
+    function askOwnershipAdjustmentArbitrate(uint256 requestId) public payable
     {
         Request storage request = requests[requestId];
         require(request.timeout > 0, "NFTP: unknown request");
         require(request.timeout <= block.timestamp, "NFTP: wait for answer");
         require(request.status == Status.Initial || request.status == Status.Rejected, "NFTP: wrong status");
         require(_isApprovedOrOwner(_msgSender(), request.tokenId), "NFTP: not owner");
-        metaEvidenceCounter++;
-        emit MetaEvidence(metaEvidenceCounter, evidence);
         request.disputeId = request.arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, request.extraData);
-        emit Dispute(request.arbitrator, request.disputeId, metaEvidenceCounter, metaEvidenceCounter);
         request.status = Status.Disputed;
-        request.evidenceId = metaEvidenceCounter;
         disputeToRequest[request.disputeId] = requestId;
         emit OwnershipAdjustmentArbitrateAsked(requestId, request.disputeId, request.newowner, request.tokenId, address(request.arbitrator));
     }
@@ -545,19 +531,16 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
      * by owner of original token if he or she lost access to wrapped token or it was stolen.
      * This function create dispute on external ERC-792 compatible arbitrator.
      */
-    function askOwnershipRestoreArbitrate(uint256 tokenId, string memory evidence, address dst, uint256 arbitratorId) public payable
+    function askOwnershipRestoreArbitrate(uint256 tokenId, address dst, uint256 arbitratorId) public payable
     {
         require(!_hasRequest(tokenId), "NFTP: have request");
         require(isOriginalOwner(tokenId, _msgSender()), "NFTP: not owner");
         require(_exists(tokenId), "NFTP: no token");
         require(!_isApprovedOrOwner(_msgSender(), tokenId), "NFTP: already owner");
-        metaEvidenceCounter++;
-        emit MetaEvidence(metaEvidenceCounter, evidence);
         IArbitrator arbitrator;
         bytes memory extraData;
         (arbitrator, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
         uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
-        emit Dispute(arbitrator, disputeId, metaEvidenceCounter, metaEvidenceCounter);
         if (tokens[tokenId].level == Security.Ultra)
         {
             require(dst != address(0) && dst != _msgSender(), "NFTP: bad dst");
@@ -572,7 +555,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
                 arbitrator,
                 extraData,
                 disputeId,
-                metaEvidenceCounter);
+                0);
         disputeToRequest[disputeId] = requestsCounter;
         tokenToRequest[tokenId] = requestsCounter;
         emit OwnershipRestoreAsked(requestsCounter, _msgSender(), ownerOf(tokenId), tokenId, address(arbitrator));
@@ -588,10 +571,22 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
         emit OwnershipRestoreAppealed(requestId);
     }
 
+    function submitMetaEvidence(uint256 requestId, string memory evidence) public onlyOwner
+    {
+        Request storage request = requests[requestId];
+        require(request.status == Status.Disputed, "NFTP: wrong status");
+        require(request.evidenceId == 0, "NFTP: have metaevidence");
+        metaEvidenceCounter++;
+        request.evidenceId=metaEvidenceCounter;
+        emit MetaEvidence(metaEvidenceCounter, evidence);
+        emit Dispute(request.arbitrator, request.disputeId, metaEvidenceCounter, metaEvidenceCounter);
+    }
+
     function submitEvidence(uint256 requestId, string memory evidence) public
     {
         Request storage request = requests[requestId];
-        require(request.status == Status.Disputed/*, "NFTP: wrong status"*/);
+        require(request.status == Status.Disputed, "NFTP: wrong status");
+        require(request.evidenceId != 0, "NFTP: no metaevidence");
         emit Evidence(request.arbitrator, request.evidenceId, _msgSender(), evidence);
     }
 
