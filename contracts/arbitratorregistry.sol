@@ -28,13 +28,15 @@ import "@kleros/erc-792/contracts/IArbitrator.sol";
 contract ArbitratorRegistry is Ownable
 {
     event Deployed();
-    event ArbitratorAdded(uint256 indexed id, string name, IArbitrator arbitrator);
+    event ArbitratorAdded(uint256 indexed id, string name, IArbitrator arbitrator, bytes extraData);
+    event ExtraDataChanged(uint256 indexed id, bytes extraData);
     event ArbitratorDeleted(uint256 indexed id);
 
     struct Arbitrator
     {
         string      name;
         IArbitrator arbitrator;
+        bytes       extraData;
     }
 
     uint256                        public counter;
@@ -45,13 +47,20 @@ contract ArbitratorRegistry is Ownable
         emit Deployed();
     }
 
-    function addArbitrator(string memory name, IArbitrator arb) public onlyOwner returns(uint256)
+    function addArbitrator(string memory name, IArbitrator arb, bytes calldata data) public onlyOwner returns(uint256)
     {
         ++counter;
         arbitrators[counter].name = name;
         arbitrators[counter].arbitrator = arb;
-        emit ArbitratorAdded(counter, name, arb);
+        arbitrators[counter].extraData = data;
+        emit ArbitratorAdded(counter, name, arb, data);
         return counter;
+    }
+
+    function setExtraData(uint256 id, bytes calldata data) public onlyOwner
+    {
+        arbitrators[id].extraData = data;
+        emit ExtraDataChanged(id, data);
     }
 
     function deleteArbitrator(uint256 id) public onlyOwner
@@ -69,5 +78,10 @@ contract ArbitratorRegistry is Ownable
     function arbitrator(uint256 id) public view returns(IArbitrator)
     {
         return arbitrators[id].arbitrator;
+    }
+
+    function extraData(uint256 id) public view returns(bytes memory)
+    {
+        return arbitrators[id].extraData;
     }
 }
