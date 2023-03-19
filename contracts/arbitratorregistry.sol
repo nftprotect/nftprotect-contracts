@@ -47,20 +47,20 @@ contract ArbitratorRegistry is Ownable
         emit Deployed();
     }
 
-    function addArbitrator(string memory name, IArbitrator arb, bytes calldata data) public onlyOwner returns(uint256)
+    function addArbitrator(string memory name, IArbitrator arb, bytes calldata extraData) public onlyOwner returns(uint256)
     {
         ++counter;
         arbitrators[counter].name = name;
         arbitrators[counter].arbitrator = arb;
-        arbitrators[counter].extraData = data;
-        emit ArbitratorAdded(counter, name, arb, data);
+        arbitrators[counter].extraData = extraData;
+        emit ArbitratorAdded(counter, name, arb, extraData);
         return counter;
     }
 
-    function setExtraData(uint256 id, bytes calldata data) public onlyOwner
+    function setExtraData(uint256 id, bytes calldata extraData) public onlyOwner
     {
-        arbitrators[id].extraData = data;
-        emit ExtraDataChanged(id, data);
+        arbitrators[id].extraData = extraData;
+        emit ExtraDataChanged(id, extraData);
     }
 
     function deleteArbitrator(uint256 id) public onlyOwner
@@ -75,14 +75,9 @@ contract ArbitratorRegistry is Ownable
         return address(arbitrators[id].arbitrator) != address(0);
     }
 
-    function arbitrator(uint256 id) public view returns(IArbitrator)
+    function arbitrator(uint256 id) public view returns(IArbitrator, bytes memory)
     {
-        return arbitrators[id].arbitrator;
-    }
-
-    function extraData(uint256 id) public view returns(bytes memory)
-    {
-        return arbitrators[id].extraData;
+        return (arbitrators[id].arbitrator, arbitrators[id].extraData);
     }
 
     function arbitrationCost(uint256 id) public view returns (uint256)
