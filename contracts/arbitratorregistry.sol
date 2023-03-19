@@ -84,4 +84,14 @@ contract ArbitratorRegistry is Ownable
     {
         return arbitrators[id].extraData;
     }
+
+    function arbitrationCost(uint256 id) public view returns (uint256)
+    {
+        return arbitrators[id].arbitrator.arbitrationCost(arbitrators[id].extraData);
+    }
+
+    function appealCost(uint256 id, uint256 disputeId) public view returns (uint256)
+    {
+        return arbitrators[id].arbitrator.appealCost(disputeId, arbitrators[id].extraData);
+    }
 }
