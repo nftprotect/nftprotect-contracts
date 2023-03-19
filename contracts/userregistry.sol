@@ -43,8 +43,8 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
     event PartnerSet(address indexed partnet, bool state);
     event DIDRegistered(address indexed did, string provider);
     event DIDUnregistered(address indexed did);
-    event SuccessorRequested(uint256 indexed disputeId, address indexed user, address indexed successor, bytes extraData, uint256 arbitratorId);
-    event SuccessorAppealed(uint256 indexed disputeId, bytes extraData);
+    event SuccessorRequested(uint256 indexed disputeId, address indexed user, address indexed successor, uint256 arbitratorId);
+    event SuccessorAppealed(uint256 indexed disputeId);
     event SuccessorApproved(uint256 indexed disputeId);
     event SuccessorRejected(uint256 indexed disputeId);
 
@@ -71,6 +71,7 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         address     user;
         address     successor;
         IArbitrator arbitrator;
+        bytes       extraData;
         uint256     evidenceId;
     }
     mapping(uint256 => SuccessorRequest) public disputes;
@@ -191,24 +192,25 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         return successors[user];
     }
 
-    function successorRequest(address user, bytes calldata extraData, string memory evidence, uint256 arbitratorId) public payable returns(uint256)
+    function successorRequest(address user, string memory evidence, uint256 arbitratorId) public payable returns(uint256)
     {
         require(isRegistered(user), "UserRegistry: Unregistered user");
         IArbitrator arbitrator = arbitratorRegistry.arbitrator(arbitratorId);
+        bytes memory extraData = arbitratorRegistry.extraData(arbitratorId);
         metaEvidenceCounter++;
         emit MetaEvidence(metaEvidenceCounter, evidence);
         uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
-        disputes[disputeId] = SuccessorRequest(user, _msgSender(), arbitrator, metaEvidenceCounter);
-        emit SuccessorRequested(disputeId, user, _msgSender(), extraData, arbitratorId);
+        disputes[disputeId] = SuccessorRequest(user, _msgSender(), arbitrator, extraData, metaEvidenceCounter);
+        emit SuccessorRequested(disputeId, user, _msgSender(), arbitratorId);
         emit Dispute(arbitrator, disputeId, metaEvidenceCounter, metaEvidenceCounter);
         return disputeId;
     }
 
-    function successorRequestAppeal(uint256 disputeId, bytes calldata extraData) public payable
+    function successorRequestAppeal(uint256 disputeId) public payable
     {
         require(disputes[disputeId].successor == _msgSender(), "UserRegistry: not the owner of the request");
-        disputes[disputeId].arbitrator.appeal{value: msg.value}(disputeId, extraData);
-        emit SuccessorAppealed(disputeId, extraData);
+        disputes[disputeId].arbitrator.appeal{value: msg.value}(disputeId, disputes[disputeId].extraData);
+        emit SuccessorAppealed(disputeId);
     }
 
     function submitEvidence(uint256 disputeId, string memory evidence) public
