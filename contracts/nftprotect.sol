@@ -131,13 +131,12 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     NFTPCoupons        public   coupons;
     uint256            internal allow;
 
-    constructor(address areg, address ureg) ERC721("NFT Protect", "wNFT")
+    constructor(address areg) ERC721("NFT Protect", "wNFT")
     {
         emit Deployed();
         setFee(Security.Basic, 0);
         setFee(Security.Ultra, 0);
         setArbitratorRegistry(areg);
-        setUserRegistry(ureg);
         setBurnOnAction(true);
         setScoreThreshold(0);
         setBase("");
@@ -190,7 +189,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     function setMetaEvidenceLoader(address mel) public onlyOwner
     {
         metaEvidenceLoader = mel;
-        userRegistry.setMetaEvidenceLoader(mel);
+        if (address(userRegistry) != address(0))
+        {
+            userRegistry.setMetaEvidenceLoader(mel);
+        }
         emit MetaEvidenceLoaderChanged(mel);
     }
 
