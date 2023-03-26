@@ -192,17 +192,15 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         return successors[user];
     }
 
-    function successorRequest(address user, string memory evidence, uint256 arbitratorId) public payable returns(uint256)
+    function successorRequest(address user, uint256 arbitratorId) public payable returns(uint256)
     {
         require(isRegistered(user), "UserRegistry: Unregistered user");
-        IArbitrator arbitrator = arbitratorRegistry.arbitrator(arbitratorId);
-        bytes memory extraData = arbitratorRegistry.extraData(arbitratorId);
-        metaEvidenceCounter++;
-        emit MetaEvidence(metaEvidenceCounter, evidence);
+        IArbitrator arbitrator;
+        bytes memory extraData;
+        (arbitrator, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
         uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
-        disputes[disputeId] = SuccessorRequest(user, _msgSender(), arbitrator, extraData, metaEvidenceCounter);
+        disputes[disputeId] = SuccessorRequest(user, _msgSender(), arbitrator, extraData, 0);
         emit SuccessorRequested(disputeId, user, _msgSender(), arbitratorId);
-        emit Dispute(arbitrator, disputeId, metaEvidenceCounter, metaEvidenceCounter);
         return disputeId;
     }
 
@@ -211,6 +209,17 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         require(disputes[disputeId].successor == _msgSender(), "UserRegistry: not the owner of the request");
         disputes[disputeId].arbitrator.appeal{value: msg.value}(disputeId, disputes[disputeId].extraData);
         emit SuccessorAppealed(disputeId);
+    }
+
+    function submitMetaEvidence(uint256 disputeId, string memory evidence) public onlyOwner
+    {
+        SuccessorRequest storage request = disputes[disputeId];
+        require(request.user == address(0), "UserRegistry: not found");
+        require(request.evidenceId == 0, "UserRegistry: have metaevidence");
+        metaEvidenceCounter++;
+        request.evidenceId=metaEvidenceCounter;
+        emit MetaEvidence(metaEvidenceCounter, evidence);
+        emit Dispute(request.arbitrator, disputeId, metaEvidenceCounter, metaEvidenceCounter);
     }
 
     function submitEvidence(uint256 disputeId, string memory evidence) public
