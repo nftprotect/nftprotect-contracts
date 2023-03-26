@@ -272,7 +272,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
      * contract. Mint wrapped token for owner.
      * If referrer is given, pay affiliatePercent of user payment to him.
      */
-    function wrap721(ERC721 contr, uint256 tokenId, Security level, address payable referrer) public payable
+    function wrap721(ERC721 contr, uint256 tokenId, Security level, address payable referrer) public payable returns(uint256)
     {
         require(address(contr) != address(this)/*, "NFTP: doublewrap"*/);
         _wrapBefore(level, referrer);
@@ -282,6 +282,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
         contr.safeTransferFrom(_msgSender(), address(this), tokenId);
         allow = 0;
         emit Wrapped721(_msgSender(), address(contr), tokenId, tokensCounter, level);
+        return tokensCounter;
     }
 
     /**
@@ -291,7 +292,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
      * contract. Mint wrapped token for owner.
      * If referrer is given, pay affiliatePercent of user payment to him.
      */
-    function wrap1155(ERC1155 contr, uint256 tokenId, uint256 amount, Security level, address payable referrer) public payable
+    function wrap1155(ERC1155 contr, uint256 tokenId, uint256 amount, Security level, address payable referrer) public payable returns(uint256)
     {
         _wrapBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
@@ -300,6 +301,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
         contr.safeTransferFrom(_msgSender(), address(this), tokenId, amount, '');
         allow = 0;
         emit Wrapped1155(_msgSender(), address(contr), tokenId, amount, tokensCounter, level);
+        return tokensCounter;
     }
 
     /**
@@ -309,13 +311,14 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
      * contract. Mint wrapped token for owner.
      * If referrer is given, pay affiliatePercent of user payment to him.
      */
-    function wrap20(IERC20 contr, uint256 amount, Security level, address payable referrer) public payable
+    function wrap20(IERC20 contr, uint256 amount, Security level, address payable referrer) public payable returns(uint256)
     {
         _wrapBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
         tokens[tokensCounter] = Original(Standard.ERC20, address(contr), 0, amount, _msgSender(), level);
         contr.transferFrom(_msgSender(), address(this), amount);
         emit Wrapped20(_msgSender(), address(contr), amount, tokensCounter, level);
+        return tokensCounter;
     }
 
     /**
