@@ -34,4 +34,6 @@ interface IUserRegistry
     function successorOf(address user) external view returns(address);
 
     function processPayment(address user, address payable referrer) external payable;
+
+    function setMetaEvidenceLoader(address mel) external;
 }

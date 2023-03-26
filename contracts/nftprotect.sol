@@ -28,7 +28,6 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@kleros/erc-792/contracts/IArbitrable.sol";
 import "@kleros/erc-792/contracts/erc-1497/IEvidence.sol";
 import "./iuserregistry.sol";
@@ -36,7 +35,7 @@ import "./arbitratorregistry.sol";
 import "./nftpcoupons.sol";
 
 
-contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, IEvidence, Ownable, ReentrancyGuard
+contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, IEvidence, Ownable
 {
     using Address for address payable;
 
@@ -47,6 +46,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     event BurnOnActionChanged(bool boa);
     event BaseChanged(string base);
     event ScoreThresholdChanged(uint256 threshold);
+    event MetaEvidenceLoaderChanged(address mel);
     event Wrapped721(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, Security level);
     event Wrapped1155(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount, Security level);
     event Wrapped20(address indexed owner, address contr, uint256 indexed tokenId, uint256 amount, Security level);
@@ -121,6 +121,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     uint256            constant duration = 2 days;
     uint256            constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
 
+    address            public   metaEvidenceLoader;
     uint256            public   metaEvidenceCounter;
     uint256            public   tokensCounter;
     uint256            public   requestsCounter;
@@ -142,6 +143,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
         setBurnOnAction(true);
         setScoreThreshold(0);
         setBase("");
+        setMetaEvidenceLoader(_msgSender());
         coupons = new NFTPCoupons(address(this));
         coupons.transferOwnership(_msgSender());
     }
@@ -185,6 +187,13 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     {
         scoreThreshold = threshold;
         emit ScoreThresholdChanged(threshold);
+    }
+
+    function setMetaEvidenceLoader(address mel) public onlyOwner
+    {
+        metaEvidenceLoader = mel;
+        userRegistry.setMetaEvidenceLoader(mel);
+        emit MetaEvidenceLoaderChanged(mel);
     }
 
     /**
@@ -265,7 +274,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
      * contract. Mint wrapped token for owner.
      * If referrer is given, pay affiliatePercent of user payment to him.
      */
-    function wrap721(ERC721 contr, uint256 tokenId, Security level, address payable referrer) public nonReentrant payable
+    function wrap721(ERC721 contr, uint256 tokenId, Security level, address payable referrer) public payable
     {
         require(address(contr) != address(this)/*, "NFTP: doublewrap"*/);
         _wrapBefore(level, referrer);
@@ -284,7 +293,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
      * contract. Mint wrapped token for owner.
      * If referrer is given, pay affiliatePercent of user payment to him.
      */
-    function wrap1155(ERC1155 contr, uint256 tokenId, uint256 amount, Security level, address payable referrer) public nonReentrant payable
+    function wrap1155(ERC1155 contr, uint256 tokenId, uint256 amount, Security level, address payable referrer) public payable
     {
         _wrapBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
@@ -302,7 +311,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
      * contract. Mint wrapped token for owner.
      * If referrer is given, pay affiliatePercent of user payment to him.
      */
-    function wrap20(IERC20 contr, uint256 amount, Security level, address payable referrer) public nonReentrant payable
+    function wrap20(IERC20 contr, uint256 amount, Security level, address payable referrer) public payable
     {
         _wrapBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
@@ -571,8 +580,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
         emit OwnershipRestoreAppealed(requestId);
     }
 
-    function submitMetaEvidence(uint256 requestId, string memory evidence) public onlyOwner
+    function submitMetaEvidence(uint256 requestId, string memory evidence) public
     {
+        require(_msgSender() == metaEvidenceLoader, "NFTP: forbidden");
         Request storage request = requests[requestId];
         require(request.status == Status.Disputed, "NFTP: wrong status");
         require(request.evidenceId == 0, "NFTP: have metaevidence");

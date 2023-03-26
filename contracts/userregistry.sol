@@ -56,6 +56,7 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
 
     uint256            public   metaEvidenceCounter;
     address            public   nftprotect;
+    address            public   metaEvidenceLoader;
     ArbitratorRegistry public   arbitratorRegistry;
     IUserDID[]         public   dids;
     uint256            public   affiliateUserPercent;
@@ -80,6 +81,7 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
     {
         emit Deployed();
         nftprotect = nftprotectaddr;
+        metaEvidenceLoader = _msgSender();
         setAffiliatePercent(10, 20);
         setArbitratorRegistry(areg);
         registerDID(did);
@@ -192,6 +194,11 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         return successors[user];
     }
 
+    function setMetaEvidenceLoader(address mel) public override onlyNFTProtect
+    {
+        metaEvidenceLoader = mel;
+    }
+
     function successorRequest(address user, uint256 arbitratorId) public payable returns(uint256)
     {
         require(isRegistered(user), "UserRegistry: Unregistered user");
@@ -211,8 +218,9 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         emit SuccessorAppealed(disputeId);
     }
 
-    function submitMetaEvidence(uint256 disputeId, string memory evidence) public onlyOwner
+    function submitMetaEvidence(uint256 disputeId, string memory evidence) public
     {
+        require(_msgSender() == metaEvidenceLoader, "UserRegistry: forbidden");
         SuccessorRequest storage request = disputes[disputeId];
         require(request.user == address(0), "UserRegistry: not found");
         require(request.evidenceId == 0, "UserRegistry: have metaevidence");
