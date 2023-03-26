@@ -1,0 +1,104 @@
+/*
+This file is part of the NFT Protect project <https://nftprotect.app/>
+
+The MultipleWrapHelper Contract is free software: you can redistribute it and/or
+modify it under the terms of the GNU lesser General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+The MultipleWrapHelper Contract is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU lesser General Public License for more details.
+
+You should have received a copy of the GNU lesser General Public License
+along with the MultipleWrapHelper Contract. If not, see <http://www.gnu.org/licenses/>.
+
+@author Ilya Svirin <is.svirin@gmail.com>
+*/
+// SPDX-License-Identifier: GNU lesser General Public License
+
+
+pragma solidity ^0.8.0;
+
+import "./nftprotect.sol";
+
+
+contract MultipleWrapHelper is Context, IERC721Receiver, IERC1155Receiver
+{
+    NFTProtect public   nftprotect;
+    uint256    internal allow;
+
+    constructor(NFTProtect p)
+    {
+        nftprotect = p;
+    }
+
+    /**
+     * @dev Accept only tokens which internally allowed by `allow` property
+     */
+    function onERC721Received(address /*operator*/, address /*from*/, uint256 /*tokenId*/, bytes calldata /*data*/) public view override returns (bytes4)
+    {
+        require(allow == 1);
+        return this.onERC721Received.selector;
+    }
+
+    function onERC1155Received(address /*operator*/, address /*from*/, uint256 /*id*/, uint256 /*value*/, bytes calldata /*data*/) public view override returns (bytes4)
+    {
+        require(allow == 1);
+        return this.onERC1155Received.selector;
+    }
+
+    function onERC1155BatchReceived(address /*operator*/, address /*from*/, uint256[] calldata /*ids*/, uint256[] calldata /*values*/, bytes calldata /*data*/) public view override returns (bytes4)
+    {
+        require(allow == 1);
+        return this.onERC1155BatchReceived.selector;
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return
+            interfaceId == type(IERC165).interfaceId ||
+            interfaceId == type(IERC721Receiver).interfaceId ||
+            interfaceId == type(IERC1155Receiver).interfaceId;
+    }
+
+    function wrap721(
+        ERC721 contr,
+        uint256[] memory tokensId,
+        NFTProtect.Security level,
+        address payable referrer) public payable
+    {
+        uint256 feeWei = nftprotect.feeWei(level);
+        require(msg.value == feeWei*tokensId.length, "MultipleWrapHelper: invalid value");
+        allow = 1;
+        for(uint256 i = 0; i < tokensId.length; i++)
+        {
+            contr.safeTransferFrom(_msgSender(), address(this), tokensId[i]);
+            contr.approve(address(nftprotect), tokensId[i]);
+            uint256 wNFT = nftprotect.wrap721{value: feeWei}(contr, tokensId[i], level, referrer);
+            nftprotect.transferFrom(address(this), _msgSender(), wNFT);
+        }
+        allow = 0;
+    }
+
+    function wrap1155(
+        ERC1155 contr,
+        uint256[] memory tokensId,
+        uint256[] memory amounts,
+        NFTProtect.Security level,
+        address payable referrer) public payable
+    {
+        uint256 feeWei = nftprotect.feeWei(level);
+        require(msg.value == feeWei*tokensId.length, "MultipleWrapHelper: invalid value");
+        require(tokensId.length == amounts.length, "MultipleWrapHelper: wrong inputs");
+        allow = 1;
+        for(uint256 i = 0; i < tokensId.length; i++)
+        {
+            contr.safeTransferFrom(_msgSender(), address(this), tokensId[i], amounts[i], '');
+            contr.setApprovalForAll(address(nftprotect), true);
+            uint256 wNFT = nftprotect.wrap1155{value: feeWei}(contr, tokensId[i], amounts[i], level, referrer);
+            nftprotect.transferFrom(address(this), _msgSender(), wNFT);
+        }
+        allow = 0;
+    }
+}
