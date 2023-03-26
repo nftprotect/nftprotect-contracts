@@ -77,9 +77,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     struct Original
     {
         Standard standard;
-        ERC721   contr721;
-        ERC1155  contr1155;
-        IERC20   contr20;
+        address  contr;
         uint256  tokenId;
         uint256  amount; // ERC1155 and ERC20 only
         address  owner;
@@ -227,9 +225,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
         Original memory token = tokens[tokenId];
         return bytes(base).length==0 ?
                 token.standard == Standard.ERC721 ?
-                    token.contr721.tokenURI(token.tokenId) :
+                    ERC721(token.contr).tokenURI(token.tokenId) :
                     token.standard == Standard.ERC1155 ?
-                        token.contr1155.uri(token.tokenId) :
+                        ERC1155(token.contr).uri(token.tokenId) :
                         "" :
                 super.tokenURI(tokenId);
     }
@@ -279,7 +277,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
         require(address(contr) != address(this)/*, "NFTP: doublewrap"*/);
         _wrapBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
-        tokens[tokensCounter] = Original(Standard.ERC721, contr, ERC1155(address(0)), IERC20(address(0)), tokenId, 1, _msgSender(), level);
+        tokens[tokensCounter] = Original(Standard.ERC721, address(contr), tokenId, 1, _msgSender(), level);
         allow = 1;
         contr.safeTransferFrom(_msgSender(), address(this), tokenId);
         allow = 0;
@@ -297,7 +295,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     {
         _wrapBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
-        tokens[tokensCounter] = Original(Standard.ERC1155, ERC721(address(0)), contr, IERC20(address(0)), tokenId, amount, _msgSender(), level);
+        tokens[tokensCounter] = Original(Standard.ERC1155, address(contr), tokenId, amount, _msgSender(), level);
         allow = 1;
         contr.safeTransferFrom(_msgSender(), address(this), tokenId, amount, '');
         allow = 0;
@@ -315,7 +313,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     {
         _wrapBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
-        tokens[tokensCounter] = Original(Standard.ERC20, ERC721(address(0)), ERC1155(address(0)), contr, 0, amount, _msgSender(), level);
+        tokens[tokensCounter] = Original(Standard.ERC20, address(contr), 0, amount, _msgSender(), level);
         contr.transferFrom(_msgSender(), address(this), amount);
         emit Wrapped20(_msgSender(), address(contr), amount, tokensCounter, level);
     }
@@ -364,15 +362,15 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
         Original memory token = tokens[tokenId];
         if(token.standard == Standard.ERC721)
         {
-            token.contr721.safeTransferFrom(address(this), dst, token.tokenId);
+            ERC721(token.contr).safeTransferFrom(address(this), dst, token.tokenId);
         }
         else if(token.standard == Standard.ERC1155)
         {
-            token.contr1155.safeTransferFrom(address(this), dst, token.tokenId, token.amount, '');
+            ERC1155(token.contr).safeTransferFrom(address(this), dst, token.tokenId, token.amount, '');
         }
         else // ERC20
         {
-            token.contr20.transfer(dst, token.amount);
+            IERC20(token.contr).transfer(dst, token.amount);
         }
         delete tokens[tokenId];
         delete requests[tokenToRequest[tokenId]];
@@ -650,7 +648,12 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
 
     function _beforeTokenTransfer(address /*from*/, address to, uint256 tokenId) internal view
     {
-        require(userRegistry.isRegistered(to), "NFTP: unregistered user");
+        require(userRegistry.isRegistered(to), "NFTP: unregistered");
         require(!_hasRequest(tokenId), "NFTP: under dispute");
+    }
+
+    function rescueERC20(address erc20, uint256 amount, address receiver) public onlyOwner
+    {
+        IERC20(erc20).transfer(receiver, amount);
     }
 }
