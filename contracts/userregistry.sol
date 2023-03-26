@@ -195,8 +195,9 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
     function successorRequest(address user, string memory evidence, uint256 arbitratorId) public payable returns(uint256)
     {
         require(isRegistered(user), "UserRegistry: Unregistered user");
-        IArbitrator arbitrator = arbitratorRegistry.arbitrator(arbitratorId);
-        bytes memory extraData = arbitratorRegistry.extraData(arbitratorId);
+        IArbitrator arbitrator;
+        bytes memory extraData;
+        (, arbitrator, extraData) = arbitratorRegistry.arbitrators(arbitratorId);
         metaEvidenceCounter++;
         emit MetaEvidence(metaEvidenceCounter, evidence);
         uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
