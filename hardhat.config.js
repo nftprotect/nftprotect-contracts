@@ -7,7 +7,5 @@ module.exports = {
   contractSizer: {
     runOnCompile: true,
     disambiguatePaths: false
-  },
-
-
+  }
 };
