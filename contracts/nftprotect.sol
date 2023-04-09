@@ -257,7 +257,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     {
         require(level == Security.Basic || userRegistry.scores(_msgSender()) >= scoreThreshold, "NFT Protect: not enough scores");
         require(userRegistry.isRegistered(_msgSender()), "NFTP: unregistered");
-        if (coupons.balanceOf(_msgSender()) > 0)
+        if (level == Security.Basic && coupons.balanceOf(_msgSender()) > 0)
         {
             coupons.burnFrom(_msgSender(), 1);
         }
