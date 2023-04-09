@@ -37,10 +37,10 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
 
     event Deployed();
     event ArbitratorRegistryChanged(address areg);
-    event AffiliatePercentChanged(uint256 userPercent, uint256 partnerPercent);
+    event AffiliatePercentChanged(uint256 percent);
     event AffiliatePayment(address indexed from, address indexed to, uint256 amountWei);
     event ReferrerSet(address indexed user, address indexed referrer);
-    event PartnerSet(address indexed partnet, bool state);
+    event PartnerSet(address indexed partnet, uint256 percent);
     event DIDRegistered(address indexed did, string provider);
     event DIDUnregistered(address indexed did);
     event SuccessorRequested(uint256 indexed disputeId, address indexed user, address indexed successor, uint256 arbitratorId);
@@ -59,13 +59,12 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
     address            public   metaEvidenceLoader;
     ArbitratorRegistry public   arbitratorRegistry;
     IUserDID[]         public   dids;
-    uint256            public   affiliateUserPercent;
-    uint256            public   affiliatePartnerPercent;
+    uint256            public   affiliatePercent;
     uint256            constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
 
     mapping(address => address)         public successors;
     mapping(address => address payable) public referrers;
-    mapping(address => bool)            public partners;
+    mapping(address => uint256)         public partners;
 
     struct SuccessorRequest
     {
@@ -82,7 +81,7 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         emit Deployed();
         nftprotect = nftprotectaddr;
         metaEvidenceLoader = _msgSender();
-        setAffiliatePercent(10, 20);
+        setAffiliatePercent(10);
         setArbitratorRegistry(areg);
         registerDID(did);
     }
@@ -93,17 +92,16 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         emit ArbitratorRegistryChanged(areg);
     }
 
-    function setAffiliatePercent(uint256 userPercent, uint256 partnerPercent) public onlyOwner
+    function setAffiliatePercent(uint256 percent) public onlyOwner
     {
-        affiliateUserPercent = userPercent;
-        affiliatePartnerPercent = partnerPercent;
-        emit AffiliatePercentChanged(userPercent, partnerPercent);
+        affiliatePercent = percent;
+        emit AffiliatePercentChanged(percent);
     }
 
-    function setPartner(address partner, bool state) public onlyOwner
+    function setPartner(address partner, uint256 percent) public onlyOwner
     {
-        partners[partner] = state;
-        emit PartnerSet(partner, state);
+        partners[partner] = percent;
+        emit PartnerSet(partner, percent);
     }
 
     function processPayment(address user, address payable referrer) public override payable onlyNFTProtect
@@ -118,7 +116,7 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         if (referrer != address(0))
         {
             require(referrer != user, "UserRegistry: invalid referrer");
-            uint256 percent = partners[referrer] ? affiliatePartnerPercent : affiliateUserPercent;
+            uint256 percent = partners[referrer]==0 ? affiliatePercent : partners[referrer];
             uint256 reward = value * percent / 100;
             if (reward > 0)
             {
