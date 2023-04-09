@@ -197,7 +197,7 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         metaEvidenceLoader = mel;
     }
 
-    function successorRequest(address user, uint256 arbitratorId) public payable returns(uint256)
+    function successorRequest(address user, uint256 arbitratorId, string memory evidence) public payable returns(uint256)
     {
         require(isRegistered(user), "UserRegistry: Unregistered user");
         IArbitrator arbitrator;
@@ -207,6 +207,7 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         disputes[disputeId] = SuccessorRequest(user, _msgSender(), arbitrator, extraData, 0);
         emit SuccessorRequested(disputeId, user, _msgSender(), arbitratorId);
         emit Dispute(arbitrator, disputeId, metaEvidenceCounter, metaEvidenceCounter);
+        emit Evidence(arbitrator, metaEvidenceCounter, _msgSender(), evidence);
         return disputeId;
     }
 
