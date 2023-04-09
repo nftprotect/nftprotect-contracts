@@ -208,6 +208,7 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
         disputes[disputeId] = SuccessorRequest(user, _msgSender(), arbitrator, extraData, 0);
         emit SuccessorRequested(disputeId, user, _msgSender(), arbitratorId);
+        emit Dispute(arbitrator, disputeId, metaEvidenceCounter, metaEvidenceCounter);
         return disputeId;
     }
 
@@ -218,16 +219,11 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         emit SuccessorAppealed(disputeId);
     }
 
-    function submitMetaEvidence(uint256 disputeId, string memory evidence) public
+    function submitMetaEvidence(string memory evidence) public
     {
         require(_msgSender() == metaEvidenceLoader, "UserRegistry: forbidden");
-        SuccessorRequest storage request = disputes[disputeId];
-        require(request.user == address(0), "UserRegistry: not found");
-        require(request.evidenceId == 0, "UserRegistry: have metaevidence");
         metaEvidenceCounter++;
-        request.evidenceId=metaEvidenceCounter;
         emit MetaEvidence(metaEvidenceCounter, evidence);
-        emit Dispute(request.arbitrator, disputeId, metaEvidenceCounter, metaEvidenceCounter);
     }
 
     function submitEvidence(uint256 disputeId, string memory evidence) public
