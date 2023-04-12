@@ -1,18 +1,18 @@
 /*
 This file is part of the NFT Protect project <https://nftprotect.app/>
 
-The MultipleWrapHelper Contract is free software: you can redistribute it and/or
+The MultipleProtectHelper Contract is free software: you can redistribute it and/or
 modify it under the terms of the GNU lesser General Public License as published
 by the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-The MultipleWrapHelper Contract is distributed in the hope that it will be useful,
+The MultipleProtectHelper Contract is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 GNU lesser General Public License for more details.
 
 You should have received a copy of the GNU lesser General Public License
-along with the MultipleWrapHelper Contract. If not, see <http://www.gnu.org/licenses/>.
+along with the MultipleProtectHelper Contract. If not, see <http://www.gnu.org/licenses/>.
 
 @author Ilya Svirin <is.svirin@gmail.com>
 */
@@ -24,7 +24,7 @@ pragma solidity ^0.8.0;
 import "./nftprotect.sol";
 
 
-contract MultipleWrapHelper is Context, IERC721Receiver, IERC1155Receiver
+contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
 {
     NFTProtect public   nftprotect;
     uint256    internal allow;
@@ -62,26 +62,26 @@ contract MultipleWrapHelper is Context, IERC721Receiver, IERC1155Receiver
             interfaceId == type(IERC1155Receiver).interfaceId;
     }
 
-    function wrap721(
+    function protect721(
         ERC721 contr,
         uint256[] memory tokensId,
         NFTProtect.Security level,
         address payable referrer) public payable
     {
         uint256 feeWei = nftprotect.feeWei(level);
-        require(msg.value == feeWei*tokensId.length, "MultipleWrapHelper: invalid value");
+        require(msg.value == feeWei*tokensId.length, "MultipleProtectHelper: invalid value");
         allow = 1;
         for(uint256 i = 0; i < tokensId.length; i++)
         {
             contr.safeTransferFrom(_msgSender(), address(this), tokensId[i]);
             contr.approve(address(nftprotect), tokensId[i]);
-            uint256 wNFT = nftprotect.wrap721{value: feeWei}(contr, tokensId[i], level, referrer);
-            nftprotect.transferFrom(address(this), _msgSender(), wNFT);
+            uint256 pNFT = nftprotect.protect721{value: feeWei}(contr, tokensId[i], level, referrer);
+            nftprotect.transferFrom(address(this), _msgSender(), pNFT);
         }
         allow = 0;
     }
 
-    function wrap1155(
+    function protect1155(
         ERC1155 contr,
         uint256[] memory tokensId,
         uint256[] memory amounts,
@@ -89,15 +89,15 @@ contract MultipleWrapHelper is Context, IERC721Receiver, IERC1155Receiver
         address payable referrer) public payable
     {
         uint256 feeWei = nftprotect.feeWei(level);
-        require(msg.value == feeWei*tokensId.length, "MultipleWrapHelper: invalid value");
-        require(tokensId.length == amounts.length, "MultipleWrapHelper: wrong inputs");
+        require(msg.value == feeWei*tokensId.length, "MultipleProtectHelper: invalid value");
+        require(tokensId.length == amounts.length, "MultipleProtectHelper: wrong inputs");
         allow = 1;
         for(uint256 i = 0; i < tokensId.length; i++)
         {
             contr.safeTransferFrom(_msgSender(), address(this), tokensId[i], amounts[i], '');
             contr.setApprovalForAll(address(nftprotect), true);
-            uint256 wNFT = nftprotect.wrap1155{value: feeWei}(contr, tokensId[i], amounts[i], level, referrer);
-            nftprotect.transferFrom(address(this), _msgSender(), wNFT);
+            uint256 pNFT = nftprotect.protect1155{value: feeWei}(contr, tokensId[i], amounts[i], level, referrer);
+            nftprotect.transferFrom(address(this), _msgSender(), pNFT);
         }
         allow = 0;
     }
