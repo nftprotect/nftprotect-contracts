@@ -206,8 +206,8 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
         disputes[disputeId] = SuccessorRequest(user, _msgSender(), arbitrator, extraData, 0);
         emit SuccessorRequested(disputeId, user, _msgSender(), arbitratorId);
-        emit Dispute(arbitrator, disputeId, metaEvidenceCounter, metaEvidenceCounter);
-        emit Evidence(arbitrator, metaEvidenceCounter, _msgSender(), evidence);
+        emit Dispute(arbitrator, disputeId, metaEvidenceCounter, disputeId);
+        emit Evidence(arbitrator, disputeId, _msgSender(), evidence);
         return disputeId;
     }
 
@@ -229,7 +229,7 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
     {
         //require(disputes[disputeId].successor == _msgSender(), "UserRegistry: not the owner of the request");
         SuccessorRequest memory request = disputes[disputeId];
-        emit Evidence(request.arbitrator, request.evidenceId, _msgSender(), evidence);
+        emit Evidence(request.arbitrator, disputeId, _msgSender(), evidence);
     }
 
     function rule(uint256 disputeId, uint256 ruling) external override
