@@ -47,10 +47,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     event BaseChanged(string base);
     event ScoreThresholdChanged(uint256 threshold);
     event MetaEvidenceLoaderChanged(address mel);
-    event Wrapped721(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, Security level);
-    event Wrapped1155(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount, Security level);
-    event Wrapped20(address indexed owner, address contr, uint256 indexed tokenId, uint256 amount, Security level);
-    event Unwrapped(address indexed dst, uint256 indexed tokenId);
+    event Protected721(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, Security level);
+    event Protected1155(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount, Security level);
+    event Protected20(address indexed owner, address contr, uint256 indexed tokenId, uint256 amount, Security level);
+    event Unprotected(address indexed dst, uint256 indexed tokenId);
     event BurnArbitrateAsked(uint256 indexed requestId, uint256 indexed disputeId, address dst, uint256 indexed tokenId, address arbitrator);
     event OwnershipAdjusted(address indexed newowner, address indexed oldowner, uint256 indexed tokenId);
     event OwnershipAdjustmentAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId, address arbitrator);
@@ -83,7 +83,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
         address  owner;
         Security level;
     }
-    // Wrapped tokenId to original
+    // Protected tokenId to original
     mapping(uint256 => Original) public tokens;
     
     enum Status
@@ -132,7 +132,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     NFTPCoupons        public   coupons;
     uint256            internal allow;
 
-    constructor(address areg) ERC721("NFT Protect", "wNFT")
+    constructor(address areg) ERC721("NFT Protect", "pNFT")
     {
         emit Deployed();
         setFee(Security.Basic, 0);
@@ -220,7 +220,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
 
     /**
      * @dev Returns the Uniform Resource Identifier (URI) for original
-     * token, wrapped in `tokenId` token.
+     * token, protected in `tokenId` token.
      */
     function tokenURI(uint256 tokenId) public view override returns (string memory)
     {
@@ -253,7 +253,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
              userRegistry.isSuccessor(token.owner, candidate));
     }
 
-    function _wrapBefore(Security level, address payable referrer) internal
+    function _protectBefore(Security level, address payable referrer) internal
     {
         require(level == Security.Basic || userRegistry.scores(_msgSender()) >= scoreThreshold, "NFT Protect: not enough scores");
         require(userRegistry.isRegistered(_msgSender()), "NFTP: unregistered");
@@ -269,64 +269,64 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     }
 
     /**
-     * @dev Wrap ERC721 token, described as pair `contr` and `tokenId`.
+     * @dev Protect ERC721 token, described as pair `contr` and `tokenId`.
      * Owner of token must approve `tokenId` for NFTProtect contract to make
      * it possible to safeTransferFrom this token from the owner to NFTProtect
-     * contract. Mint wrapped token for owner.
+     * contract. Mint protected token for owner.
      * If referrer is given, pay affiliatePercent of user payment to him.
      */
-    function wrap721(ERC721 contr, uint256 tokenId, Security level, address payable referrer) public payable returns(uint256)
+    function protect721(ERC721 contr, uint256 tokenId, Security level, address payable referrer) public payable returns(uint256)
     {
-        require(address(contr) != address(this)/*, "NFTP: doublewrap"*/);
-        _wrapBefore(level, referrer);
+        require(address(contr) != address(this)/*, "NFTP: doubleprotect"*/);
+        _protectBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
         tokens[tokensCounter] = Original(Standard.ERC721, address(contr), tokenId, 1, _msgSender(), level);
         allow = 1;
         contr.safeTransferFrom(_msgSender(), address(this), tokenId);
         allow = 0;
-        emit Wrapped721(_msgSender(), address(contr), tokenId, tokensCounter, level);
+        emit Protected721(_msgSender(), address(contr), tokenId, tokensCounter, level);
         return tokensCounter;
     }
 
     /**
-     * @dev Wrap ERC1155 token, described as pair `contr` and `tokenId`.
+     * @dev Protect ERC1155 token, described as pair `contr` and `tokenId`.
      * Owner of token must approve `tokenId` for NFTProtect contract to make
      * it possible to safeTransferFrom this token from the owner to NFTProtect
-     * contract. Mint wrapped token for owner.
+     * contract. Mint protected token for owner.
      * If referrer is given, pay affiliatePercent of user payment to him.
      */
-    function wrap1155(ERC1155 contr, uint256 tokenId, uint256 amount, Security level, address payable referrer) public payable returns(uint256)
+    function protect1155(ERC1155 contr, uint256 tokenId, uint256 amount, Security level, address payable referrer) public payable returns(uint256)
     {
-        _wrapBefore(level, referrer);
+        _protectBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
         tokens[tokensCounter] = Original(Standard.ERC1155, address(contr), tokenId, amount, _msgSender(), level);
         allow = 1;
         contr.safeTransferFrom(_msgSender(), address(this), tokenId, amount, '');
         allow = 0;
-        emit Wrapped1155(_msgSender(), address(contr), tokenId, amount, tokensCounter, level);
+        emit Protected1155(_msgSender(), address(contr), tokenId, amount, tokensCounter, level);
         return tokensCounter;
     }
 
     /**
-     * @dev Wrap ERC20 tokens, issued by `contr` contract.
+     * @dev Protect ERC20 tokens, issued by `contr` contract.
      * Owner of token must approve 'amount' of tokens for NFTProtect contract to make
      * it possible to transferFrom this tokens from the owner to NFTProtect
-     * contract. Mint wrapped token for owner.
+     * contract. Mint protected token for owner.
      * If referrer is given, pay affiliatePercent of user payment to him.
      */
-    function wrap20(IERC20 contr, uint256 amount, Security level, address payable referrer) public payable returns(uint256)
+    function protect20(IERC20 contr, uint256 amount, Security level, address payable referrer) public payable returns(uint256)
     {
-        _wrapBefore(level, referrer);
+        _protectBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
         tokens[tokensCounter] = Original(Standard.ERC20, address(contr), 0, amount, _msgSender(), level);
         contr.transferFrom(_msgSender(), address(this), amount);
-        emit Wrapped20(_msgSender(), address(contr), amount, tokensCounter, level);
+        emit Protected20(_msgSender(), address(contr), amount, tokensCounter, level);
         return tokensCounter;
     }
 
     /**
-     * @dev Burn wrapped token and send original token to the owner.
-     * The owner of the original token and the owner of wrapped token must
+     * @dev Burn protected token and send original token to the owner.
+     * The owner of the original token and the owner of protected token must
      * be the same. If not, need to call askOwnershipAdjustment() first.
      */
     function burn(uint256 tokenId, address dst, uint256 arbitratorId, string memory evidence) public payable
@@ -383,7 +383,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
         }
         delete tokens[tokenId];
         delete requests[tokenToRequest[tokenId]];
-        emit Unwrapped(dst, tokenId);
+        emit Unprotected(dst, tokenId);
     }
 
     function _hasRequest(uint256 tokenId) internal view returns(bool)
@@ -399,7 +399,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
         return false;
     }
 
-    /** @dev Transfer ownerhip for `tokenId` to the owner of wrapped token. Must
+    /** @dev Transfer ownerhip for `tokenId` to the owner of protected token. Must
      *  be called by the current owner of `tokenId`.
      */
     function adjustOwnership(uint256 tokenId, uint256 arbitratorId, string memory evidence) public payable
@@ -445,7 +445,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
 
     /**
      * @dev Create request for ownership adjustment for `tokenId`. It requires
-     * when somebody got ownership of wrapped token. Owner of original token
+     * when somebody got ownership of protected token. Owner of original token
      * must confirm or reject ownership transfer by calling answerOwnershipAdjustment().
      */
     function askOwnershipAdjustment(uint256 tokenId, address dst, uint256 arbitratorId) public 
@@ -481,7 +481,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
 
     /**
      * @dev Must be called by the owner of the original token to confirm or reject
-     * ownership transfer to the new owner of the wrapped token.
+     * ownership transfer to the new owner of the protected token.
      */
     function answerOwnershipAdjustment(uint256 requestId, bool accept, string memory evidence) public payable
     {
@@ -520,7 +520,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     }
 
     /**
-     * @dev Can be called by the owner of the wrapped token if owner of
+     * @dev Can be called by the owner of the protected token if owner of
      * the original token didn't answer or rejected ownership transfer.
      * This function create dispute on external ERC-792 compatible arbitrator.
      */
@@ -550,8 +550,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, IArbitrable, I
     }
 
     /**
-     * @dev Create request for original ownership wrapped to `tokenId`. Can be called
-     * by owner of original token if he or she lost access to wrapped token or it was stolen.
+     * @dev Create request for original ownership protected to `tokenId`. Can be called
+     * by owner of original token if he or she lost access to protected token or it was stolen.
      * This function create dispute on external ERC-792 compatible arbitrator.
      */
     function askOwnershipRestoreArbitrate(uint256 tokenId, address dst, uint256 arbitratorId, string memory evidence) public payable
