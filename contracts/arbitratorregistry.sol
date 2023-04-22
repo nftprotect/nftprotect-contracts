@@ -23,20 +23,21 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@kleros/erc-792/contracts/IArbitrator.sol";
+import "./iarbitrableproxy.sol";
 
 
 contract ArbitratorRegistry is Ownable
 {
     event Deployed();
-    event ArbitratorAdded(uint256 indexed id, string name, IArbitrator arbitrator, bytes extraData);
+    event ArbitratorAdded(uint256 indexed id, string name, IArbitrableProxy arbitratorProxy, bytes extraData);
     event ExtraDataChanged(uint256 indexed id, bytes extraData);
     event ArbitratorDeleted(uint256 indexed id);
 
     struct Arbitrator
     {
-        string      name;
-        IArbitrator arbitrator;
-        bytes       extraData;
+        string           name;
+        IArbitrableProxy arbitrator;
+        bytes            extraData;
     }
 
     uint256                        public counter;
@@ -47,7 +48,7 @@ contract ArbitratorRegistry is Ownable
         emit Deployed();
     }
 
-    function addArbitrator(string memory name, IArbitrator arb, bytes calldata extraData) public onlyOwner returns(uint256)
+    function addArbitrator(string memory name, IArbitrableProxy arb, bytes calldata extraData) public onlyOwner returns(uint256)
     {
         ++counter;
         arbitrators[counter].name = name;
@@ -75,18 +76,14 @@ contract ArbitratorRegistry is Ownable
         return address(arbitrators[id].arbitrator) != address(0);
     }
 
-    function arbitrator(uint256 id) public view returns(IArbitrator, bytes memory)
+    function arbitrator(uint256 id) public view returns(IArbitrableProxy, bytes memory)
     {
         return (arbitrators[id].arbitrator, arbitrators[id].extraData);
     }
 
     function arbitrationCost(uint256 id) public view returns (uint256)
     {
-        return arbitrators[id].arbitrator.arbitrationCost(arbitrators[id].extraData);
-    }
-
-    function appealCost(uint256 id, uint256 disputeId) public view returns (uint256)
-    {
-        return arbitrators[id].arbitrator.appealCost(disputeId, arbitrators[id].extraData);
+        IArbitrator finalArbitrator = arbitrators[id].arbitrator.arbitrator();
+        return finalArbitrator.arbitrationCost(arbitrators[id].extraData);
     }
 }

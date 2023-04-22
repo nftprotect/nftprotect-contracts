@@ -23,15 +23,12 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@kleros/erc-792/contracts/IArbitrator.sol";
-import "@kleros/erc-792/contracts/IArbitrable.sol";
-import "@kleros/erc-792/contracts/erc-1497/IEvidence.sol";
 import "./iuserregistry.sol";
 import "./arbitratorregistry.sol";
 import "./iuserdid.sol";
+import "./iarbitrableproxy.sol";
 
-
-contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
+contract UserRegistry is Ownable, IUserRegistry
 {
     using Address for address payable;
 
@@ -54,7 +51,7 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         _;
     }
 
-    uint256            public   metaEvidenceCounter;
+    string             public   metaEvidenceURI;
     address            public   nftprotect;
     address            public   metaEvidenceLoader;
     ArbitratorRegistry public   arbitratorRegistry;
@@ -68,11 +65,9 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
 
     struct SuccessorRequest
     {
-        address     user;
-        address     successor;
-        IArbitrator arbitrator;
-        bytes       extraData;
-        uint256     evidenceId;
+        address          user;
+        address          successor;
+        IArbitrableProxy arbitrator;
     }
     mapping(uint256 => SuccessorRequest) public disputes;
 
@@ -200,43 +195,33 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
     function successorRequest(address user, uint256 arbitratorId, string memory evidence) public payable returns(uint256)
     {
         require(isRegistered(user), "UserRegistry: Unregistered user");
-        IArbitrator arbitrator;
+        IArbitrableProxy arbitrableProxy;
         bytes memory extraData;
-        (arbitrator, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
-        uint256 disputeId = arbitrator.createDispute{value: msg.value}(numberOfRulingOptions, extraData);
-        disputes[disputeId] = SuccessorRequest(user, _msgSender(), arbitrator, extraData, 0);
+        (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
+        uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidenceURI, numberOfRulingOptions);
+        // This id works both for the userregistry request, and the arbitrableproxy local dispute
+        uint256 disputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
+        disputes[disputeId] = SuccessorRequest(user, _msgSender(), arbitrableProxy);
         emit SuccessorRequested(disputeId, user, _msgSender(), arbitratorId);
-        emit Dispute(arbitrator, disputeId, metaEvidenceCounter, disputeId);
-        emit Evidence(arbitrator, disputeId, _msgSender(), evidence);
+        arbitrableProxy.submitEvidence(disputeId, evidence);
         return disputeId;
-    }
-
-    function successorRequestAppeal(uint256 disputeId) public payable
-    {
-        require(disputes[disputeId].successor == _msgSender(), "UserRegistry: not the owner of the request");
-        disputes[disputeId].arbitrator.appeal{value: msg.value}(disputeId, disputes[disputeId].extraData);
-        emit SuccessorAppealed(disputeId);
     }
 
     function submitMetaEvidence(string memory evidence) public
     {
         require(_msgSender() == metaEvidenceLoader, "UserRegistry: forbidden");
-        metaEvidenceCounter++;
-        emit MetaEvidence(metaEvidenceCounter, evidence);
+        metaEvidenceURI = evidence;
+        // todo since userregistry is no longer IEvidence, you might want to emit an event here.
+        // although `setMetaEvidenceLoader` did not need an event, so maybe no event is needed anymore.
     }
 
-    function submitEvidence(uint256 disputeId, string memory evidence) public
+    function fetchRuling(uint256 disputeId) external
     {
-        //require(disputes[disputeId].successor == _msgSender(), "UserRegistry: not the owner of the request");
         SuccessorRequest memory request = disputes[disputeId];
-        emit Evidence(request.arbitrator, disputeId, _msgSender(), evidence);
-    }
+        IArbitrableProxy arbitrator = request.arbitrator;
+        (, bool isRuled, uint256 ruling,) = arbitrator.disputes(disputeId);
+        require(isRuled, "UserRegistry: Ruling pending");
 
-    function rule(uint256 disputeId, uint256 ruling) external override
-    {
-        require(_msgSender() == address(disputes[disputeId].arbitrator), "UserRegistry: invalid arbitrator");
-        require(ruling <= numberOfRulingOptions, "UserRegistry: invalid ruling");
-        SuccessorRequest memory request = disputes[disputeId];
         if (ruling == 1)
         {
             successors[request.user] = request.successor;
@@ -246,7 +231,6 @@ contract UserRegistry is Ownable, IArbitrable, IEvidence, IUserRegistry
         {
             emit SuccessorRejected(disputeId);
         }
-        emit Ruling(request.arbitrator, disputeId, ruling);
         delete disputes[disputeId];
     }
 }
