@@ -44,9 +44,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     event BaseChanged(string base);
     event ScoreThresholdChanged(uint256 threshold);
     event MetaEvidenceLoaderChanged(address mel);
-    event Protected721(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, Security level);
-    event Protected1155(address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount, Security level);
-    event Protected20(address indexed owner, address contr, uint256 indexed tokenId, uint256 amount, Security level);
+    event Protected(uint256 indexed assetType, address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount, Security level);
     event Unprotected(address indexed dst, uint256 indexed tokenId);
     event BurnArbitrateAsked(uint256 indexed requestId, uint256 indexed disputeId, address dst, uint256 indexed tokenId, address arbitrator, string evidence);
     event OwnershipAdjusted(address indexed newowner, address indexed oldowner, uint256 indexed tokenId);
@@ -277,25 +275,21 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     {
         _protectBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
+        tokens[tokensCounter] = Original(std, contr, tokenId, amount, _msgSender(), level);
         allow = 1;
         if(std == Standard.ERC721)
         {
-            tokens[tokensCounter] = Original(Standard.ERC721, contr, tokenId, 1, _msgSender(), level);
             ERC721(contr).safeTransferFrom(_msgSender(), address(this), tokenId);
-            emit Protected721(_msgSender(), contr, tokenId, tokensCounter, level);
         }
         else if(std == Standard.ERC1155)
         {
-            tokens[tokensCounter] = Original(Standard.ERC1155, contr, tokenId, amount, _msgSender(), level);
             ERC1155(contr).safeTransferFrom(_msgSender(), address(this), tokenId, amount, '');
-            emit Protected1155(_msgSender(), contr, tokenId, amount, tokensCounter, level);
         }
         else if(std == Standard.ERC20)
         {
-            tokens[tokensCounter] = Original(Standard.ERC20, contr, 0, amount, _msgSender(), level);
             IERC20(contr).transferFrom(_msgSender(), address(this), amount);
-            emit Protected20(_msgSender(), contr, amount, tokensCounter, level);
         }
+        emit Protected(uint256(std), _msgSender(), contr, tokenId, amount, tokensCounter, level);
         allow = 0;
         return tokensCounter;
     }
