@@ -30,7 +30,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./iuserregistry.sol";
 import "./arbitratorregistry.sol";
-import "./nftpcoupons.sol";
 
 
 contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
@@ -111,7 +110,14 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     mapping(uint256 => uint256)  public tokenToRequest;
     mapping(uint256 => uint256)  public disputeToRequest;
     mapping(Security => uint256) public feeWei;
-    mapping(string => string)    public metaEvidences; // burn, adjustOwnership, askOwnershipAdjustment, askOwnershipRestore
+    enum MetaEvidenceType
+    {
+        burn,
+        adjustOwnership,
+        askOwnershipAdjustment,
+        askOwnershipRestore
+    }
+    mapping(MetaEvidenceType => string)    public metaEvidences;
     
     uint256            constant duration = 2 days;
     uint256            constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
@@ -124,7 +130,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     bool               public   burnOnAction;
     string             public   base;
     uint256            public   scoreThreshold;
-    NFTPCoupons        public   coupons;
     uint256            internal allow;
 
     constructor(address areg) ERC721("NFT Protect", "pNFT")
@@ -137,8 +142,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         setScoreThreshold(0);
         setBase("");
         setMetaEvidenceLoader(_msgSender());
-        coupons = new NFTPCoupons(address(this));
-        coupons.transferOwnership(_msgSender());
     }
 
     function setFee(Security level, uint256 fw) public onlyOwner
@@ -252,15 +255,11 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     {
         require(level == Security.Basic || userRegistry.scores(_msgSender()) >= scoreThreshold, "not enough scores");
         require(userRegistry.isRegistered(_msgSender()), "unregistered");
-        if (level == Security.Basic && coupons.balanceOf(_msgSender()) > 0)
-        {
-            coupons.burnFrom(_msgSender(), 1);
-        }
-        else
-        {
-            require(msg.value == feeWei[level], "wrong payment");
-            userRegistry.processPayment{value: msg.value}(_msgSender(), referrer);
-        }
+        userRegistry.processPayment{value: msg.value}(
+            _msgSender(),
+            referrer,
+            level == Security.Basic,
+            feeWei[level]);
     }
 
     /**
@@ -339,7 +338,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             IArbitrableProxy arbitrableProxy;
             bytes memory extraData;
             (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
-            uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences["burn"], numberOfRulingOptions);
+            uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences[MetaEvidenceType.burn], numberOfRulingOptions);
             uint256 disputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
             requests[requestsCounter] =
                 Request(
@@ -351,7 +350,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                     arbitrableProxy,
                     extraData,
                     disputeId,
-                    metaEvidences["burn"]);
+                    metaEvidences[MetaEvidenceType.burn]);
             tokenToRequest[tokenId] = requestsCounter;
             disputeToRequest[disputeId] = requestsCounter;
             emit BurnArbitrateAsked(requestsCounter, disputeId, dst, tokenId, address(arbitrableProxy), evidence);
@@ -415,7 +414,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             IArbitrableProxy arbitrableProxy;
             bytes memory extraData;
             (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
-            uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences["adjustOwnership"], numberOfRulingOptions);
+            uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences[MetaEvidenceType.adjustOwnership], numberOfRulingOptions);
             uint256 disputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
             requests[requestsCounter] =
                 Request(
@@ -427,7 +426,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                     arbitrableProxy,
                     extraData,
                     disputeId,
-                    metaEvidences["adjustOwnership"]);
+                    metaEvidences[MetaEvidenceType.adjustOwnership]);
             tokenToRequest[tokenId] = requestsCounter;
             disputeToRequest[disputeId] = requestsCounter;
             emit OwnershipAdjustmentArbitrateAsked(requestsCounter, disputeId, ownerOf(tokenId), tokenId, address(arbitrableProxy), evidence);
@@ -465,7 +464,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                 arbitrableProxy,
                 extraData,
                 0,
-                metaEvidences["askOwnershipAdjustment"]);
+                metaEvidences[MetaEvidenceType.askOwnershipAdjustment]);
         tokenToRequest[tokenId] = requestsCounter;
         emit OwnershipAdjustmentAsked(requestsCounter, newowner, token.owner, tokenId, address(arbitrableProxy));
     }
@@ -544,7 +543,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         IArbitrableProxy arbitrableProxy;
         bytes memory extraData;
         (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
-        uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences["askOwnershipRestore"], numberOfRulingOptions);
+        uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences[MetaEvidenceType.askOwnershipRestore], numberOfRulingOptions);
         uint256 disputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
         if (tokens[tokenId].level == Security.Ultra)
         {
@@ -560,13 +559,13 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                 arbitrableProxy,
                 extraData,
                 disputeId,
-                metaEvidences["askOwnershipRestore"]);
+                metaEvidences[MetaEvidenceType.askOwnershipRestore]);
         disputeToRequest[disputeId] = requestsCounter;
         tokenToRequest[tokenId] = requestsCounter;
         emit OwnershipRestoreAsked(requestsCounter, _msgSender(), ownerOf(tokenId), tokenId, address(arbitrableProxy), evidence);
     }
 
-    function submitMetaEvidence(string memory evidenceType, string memory evidence) public
+    function submitMetaEvidence(MetaEvidenceType evidenceType, string memory evidence) public
     {
         require(_msgSender() == metaEvidenceLoader, "forbidden");
         metaEvidences[evidenceType] = evidence;

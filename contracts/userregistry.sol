@@ -27,6 +27,8 @@ import "./iuserregistry.sol";
 import "./arbitratorregistry.sol";
 import "./iuserdid.sol";
 import "./iarbitrableproxy.sol";
+import "./nftpcoupons.sol";
+
 
 contract UserRegistry is Ownable, IUserRegistry
 {
@@ -53,6 +55,7 @@ contract UserRegistry is Ownable, IUserRegistry
 
     string             public   metaEvidenceURI;
     address            public   nftprotect;
+    NFTPCoupons        public   coupons;
     address            public   metaEvidenceLoader;
     ArbitratorRegistry public   arbitratorRegistry;
     IUserDID[]         public   dids;
@@ -79,6 +82,8 @@ contract UserRegistry is Ownable, IUserRegistry
         setAffiliatePercent(10);
         setArbitratorRegistry(areg);
         registerDID(did);
+        coupons = new NFTPCoupons(address(this));
+        coupons.transferOwnership(_msgSender());
     }
     
     function setArbitratorRegistry(address areg) public onlyOwner
@@ -99,8 +104,14 @@ contract UserRegistry is Ownable, IUserRegistry
         emit PartnerSet(partner, percent);
     }
 
-    function processPayment(address user, address payable referrer) public override payable onlyNFTProtect
+    function processPayment(address user, address payable referrer, bool canUseCoupons, uint256 fee) public override payable onlyNFTProtect
     {
+        if (canUseCoupons && coupons.balanceOf(user) > 0)
+        {
+            coupons.burnFrom(user, 1);
+            return;
+        }
+        require(msg.value == fee, "wrong payment");
         if (referrers[user] == address(0) && referrer != address(0))
         {
             referrers[user] = referrer;
