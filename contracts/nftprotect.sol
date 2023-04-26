@@ -263,58 +263,40 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     }
 
     /**
-     * @dev Protect ERC721 token, described as pair `contr` and `tokenId`.
-     * Owner of token must approve `tokenId` for NFTProtect contract to make
-     * it possible to safeTransferFrom this token from the owner to NFTProtect
-     * contract. Mint protected token for owner.
-     * If referrer is given, pay affiliatePercent of user payment to him.
-     */
-    function protect721(ERC721 contr, uint256 tokenId, Security level, address payable referrer) public payable returns(uint256)
-    {
-        require(address(contr) != address(this)/*, "doubleprotect"*/);
-        _protectBefore(level, referrer);
-        _mint(_msgSender(), ++tokensCounter);
-        tokens[tokensCounter] = Original(Standard.ERC721, address(contr), tokenId, 1, _msgSender(), level);
-        allow = 1;
-        contr.safeTransferFrom(_msgSender(), address(this), tokenId);
-        allow = 0;
-        emit Protected721(_msgSender(), address(contr), tokenId, tokensCounter, level);
-        return tokensCounter;
-    }
-
-    /**
-     * @dev Protect ERC1155 token, described as pair `contr` and `tokenId`.
-     * Owner of token must approve `tokenId` for NFTProtect contract to make
-     * it possible to safeTransferFrom this token from the owner to NFTProtect
-     * contract. Mint protected token for owner.
-     * If referrer is given, pay affiliatePercent of user payment to him.
-     */
-    function protect1155(ERC1155 contr, uint256 tokenId, uint256 amount, Security level, address payable referrer) public payable returns(uint256)
-    {
-        _protectBefore(level, referrer);
-        _mint(_msgSender(), ++tokensCounter);
-        tokens[tokensCounter] = Original(Standard.ERC1155, address(contr), tokenId, amount, _msgSender(), level);
-        allow = 1;
-        contr.safeTransferFrom(_msgSender(), address(this), tokenId, amount, '');
-        allow = 0;
-        emit Protected1155(_msgSender(), address(contr), tokenId, amount, tokensCounter, level);
-        return tokensCounter;
-    }
-
-    /**
-     * @dev Protect ERC20 tokens, issued by `contr` contract.
-     * Owner of token must approve 'amount' of tokens for NFTProtect contract to make
+     * @dev Protect token, issued by `contr` contract.
+     * Owner of token must approve 'amount' of 'tokenId' tokens for NFTProtect contract to make
      * it possible to transferFrom this tokens from the owner to NFTProtect
      * contract. Mint protected token for owner.
      * If referrer is given, pay affiliatePercent of user payment to him.
+     * Using parameters:
+     * * ERC721:  tokenId
+     * * ERC1155: tokenId, amount
+     * * ERC20:   emount
      */
-    function protect20(IERC20 contr, uint256 amount, Security level, address payable referrer) public payable returns(uint256)
+    function protect(Standard std, address contr, uint256 tokenId, uint256 amount, Security level, address payable referrer) public payable returns(uint256)
     {
         _protectBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
-        tokens[tokensCounter] = Original(Standard.ERC20, address(contr), 0, amount, _msgSender(), level);
-        contr.transferFrom(_msgSender(), address(this), amount);
-        emit Protected20(_msgSender(), address(contr), amount, tokensCounter, level);
+        allow = 1;
+        if(std == Standard.ERC721)
+        {
+            tokens[tokensCounter] = Original(Standard.ERC721, contr, tokenId, 1, _msgSender(), level);
+            ERC721(contr).safeTransferFrom(_msgSender(), address(this), tokenId);
+            emit Protected721(_msgSender(), contr, tokenId, tokensCounter, level);
+        }
+        else if(std == Standard.ERC1155)
+        {
+            tokens[tokensCounter] = Original(Standard.ERC1155, contr, tokenId, amount, _msgSender(), level);
+            ERC1155(contr).safeTransferFrom(_msgSender(), address(this), tokenId, amount, '');
+            emit Protected1155(_msgSender(), contr, tokenId, amount, tokensCounter, level);
+        }
+        else if(std == Standard.ERC20)
+        {
+            tokens[tokensCounter] = Original(Standard.ERC20, contr, 0, amount, _msgSender(), level);
+            IERC20(contr).transferFrom(_msgSender(), address(this), amount);
+            emit Protected20(_msgSender(), contr, amount, tokensCounter, level);
+        }
+        allow = 0;
         return tokensCounter;
     }
 
