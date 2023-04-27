@@ -75,7 +75,13 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
         {
             contr.safeTransferFrom(_msgSender(), address(this), tokensId[i]);
             contr.approve(address(nftprotect), tokensId[i]);
-            uint256 pNFT = nftprotect.protect721{value: feeWei}(contr, tokensId[i], level, referrer);
+            uint256 pNFT = nftprotect.protect{value: feeWei}(
+                NFTProtect.Standard.ERC721,
+                address(contr),
+                tokensId[i],
+                1,
+                level,
+                referrer);
             nftprotect.transferFrom(address(this), _msgSender(), pNFT);
         }
         allow = 0;
@@ -96,7 +102,13 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
         {
             contr.safeTransferFrom(_msgSender(), address(this), tokensId[i], amounts[i], '');
             contr.setApprovalForAll(address(nftprotect), true);
-            uint256 pNFT = nftprotect.protect1155{value: feeWei}(contr, tokensId[i], amounts[i], level, referrer);
+            uint256 pNFT = nftprotect.protect{value: feeWei}(
+                NFTProtect.Standard.ERC1155,
+                address(contr),
+                tokensId[i],
+                amounts[i],
+                level,
+                referrer);
             nftprotect.transferFrom(address(this), _msgSender(), pNFT);
         }
         allow = 0;
