@@ -102,7 +102,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         IArbitrableProxy arbitrator;
         bytes            extraData;
         uint256          disputeId;
-        string           metaEvidence;
     }
     mapping(uint256 => Request)  public requests;
     mapping(uint256 => uint256)  public tokenToRequest;
@@ -113,6 +112,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         burn,
         adjustOwnership,
         askOwnershipAdjustment,
+        answerOwnershipAdjustment,
+        askOwnershipAdjustmentArbitrate,
         askOwnershipRestore
     }
     mapping(MetaEvidenceType => string)    public metaEvidences;
@@ -325,8 +326,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                     Status.Disputed,
                     arbitrableProxy,
                     extraData,
-                    disputeId,
-                    metaEvidences[MetaEvidenceType.burn]);
+                    disputeId
+                );
             tokenToRequest[tokenId] = requestsCounter;
             disputeToRequest[disputeId] = requestsCounter;
             emit BurnArbitrateAsked(requestsCounter, disputeId, dst, tokenId, address(arbitrableProxy), evidence);
@@ -401,8 +402,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                     Status.Disputed,
                     arbitrableProxy,
                     extraData,
-                    disputeId,
-                    metaEvidences[MetaEvidenceType.adjustOwnership]);
+                    disputeId
+                );
             tokenToRequest[tokenId] = requestsCounter;
             disputeToRequest[disputeId] = requestsCounter;
             emit OwnershipAdjustmentArbitrateAsked(requestsCounter, disputeId, ownerOf(tokenId), tokenId, address(arbitrableProxy), evidence);
@@ -439,8 +440,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                 Status.Initial,
                 arbitrableProxy,
                 extraData,
-                0,
-                metaEvidences[MetaEvidenceType.askOwnershipAdjustment]);
+                0
+            );
         tokenToRequest[tokenId] = requestsCounter;
         emit OwnershipAdjustmentAsked(requestsCounter, newowner, token.owner, tokenId, address(arbitrableProxy));
     }
@@ -470,7 +471,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             }
             else
             {
-                uint256 externalDisputeId = request.arbitrator.createDispute{value: msg.value}(request.extraData, request.metaEvidence, numberOfRulingOptions);
+                uint256 externalDisputeId = request.arbitrator.createDispute{value: msg.value}(request.extraData, metaEvidences[MetaEvidenceType.answerOwnershipAdjustment], numberOfRulingOptions);
                 request.disputeId = request.arbitrator.externalIDtoLocalID(externalDisputeId);
                 request.status = Status.Disputed;
                 disputeToRequest[request.disputeId] = requestId;
@@ -496,7 +497,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(request.status == Status.Initial || request.status == Status.Rejected, "wrong status");
         require(request.status == Status.Rejected || request.timeout <= block.timestamp, "wait for answer");
         require(_isApprovedOrOwner(_msgSender(), request.tokenId), "not owner");
-        uint256 externalDisputeId = request.arbitrator.createDispute{value: msg.value}(request.extraData, request.metaEvidence, numberOfRulingOptions);
+        uint256 externalDisputeId = request.arbitrator.createDispute{value: msg.value}(request.extraData, metaEvidences[MetaEvidenceType.askOwnershipAdjustmentArbitrate], numberOfRulingOptions);
         request.disputeId = request.arbitrator.externalIDtoLocalID(externalDisputeId);
         request.status = Status.Disputed;
         disputeToRequest[request.disputeId] = requestId;
@@ -534,8 +535,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                 Status.Disputed,
                 arbitrableProxy,
                 extraData,
-                disputeId,
-                metaEvidences[MetaEvidenceType.askOwnershipRestore]);
+                disputeId
+            );
         disputeToRequest[disputeId] = requestsCounter;
         tokenToRequest[tokenId] = requestsCounter;
         emit OwnershipRestoreAsked(requestsCounter, _msgSender(), ownerOf(tokenId), tokenId, address(arbitrableProxy), evidence);
