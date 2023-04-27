@@ -99,8 +99,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         address          newowner;
         uint256          timeout;
         Status           status;
-        IArbitrableProxy arbitrator;
-        bytes            extraData;
+        uint256          arbitratorId;
         uint256          disputeId;
     }
     mapping(uint256 => Request)  public requests;
@@ -326,8 +325,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                     dst,
                     0,
                     Status.Disputed,
-                    arbitrableProxy,
-                    extraData,
+                    arbitratorId,
                     disputeId
                 );
             tokenToRequest[tokenId] = requestsCounter;
@@ -402,8 +400,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                     ownerOf(tokenId),
                     0,
                     Status.Disputed,
-                    arbitrableProxy,
-                    extraData,
+                    arbitratorId,
                     disputeId
                 );
             tokenToRequest[tokenId] = requestsCounter;
@@ -430,8 +427,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         }
         address newowner = dst == address(0) ? _msgSender() : dst;
         IArbitrableProxy arbitrableProxy;
-        bytes memory extraData;
-        (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
+        (arbitrableProxy, ) = arbitratorRegistry.arbitrator(arbitratorId);
         require(address(arbitrableProxy) != address(0), "no arbitrator");
         requests[requestsCounter] =
             Request(
@@ -440,8 +436,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                 newowner,
                 block.timestamp + duration,
                 Status.Initial,
-                arbitrableProxy,
-                extraData,
+                arbitratorId,
                 0
             );
         tokenToRequest[tokenId] = requestsCounter;
@@ -473,11 +468,14 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             }
             else
             {
-                uint256 externalDisputeId = request.arbitrator.createDispute{value: msg.value}(request.extraData, metaEvidences[MetaEvidenceType.answerOwnershipAdjustment], numberOfRulingOptions);
-                request.disputeId = request.arbitrator.externalIDtoLocalID(externalDisputeId);
+                IArbitrableProxy arbitrableProxy;
+                bytes memory extraData;
+                (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(request.arbitratorId);
+                uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences[MetaEvidenceType.answerOwnershipAdjustment], numberOfRulingOptions);
+                request.disputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
                 request.status = Status.Disputed;
                 disputeToRequest[request.disputeId] = requestId;
-                emit OwnershipAdjustmentArbitrateAsked(requestId, request.disputeId, request.newowner, request.tokenId, address(request.arbitrator), evidence);
+                emit OwnershipAdjustmentArbitrateAsked(requestId, request.disputeId, request.newowner, request.tokenId, address(arbitrableProxy), evidence);
             }
         }
         else
@@ -499,11 +497,14 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(request.status == Status.Initial || request.status == Status.Rejected, "wrong status");
         require(request.status == Status.Rejected || request.timeout <= block.timestamp, "wait for answer");
         require(_isApprovedOrOwner(_msgSender(), request.tokenId), "not owner");
-        uint256 externalDisputeId = request.arbitrator.createDispute{value: msg.value}(request.extraData, metaEvidences[MetaEvidenceType.askOwnershipAdjustmentArbitrate], numberOfRulingOptions);
-        request.disputeId = request.arbitrator.externalIDtoLocalID(externalDisputeId);
+        IArbitrableProxy arbitrableProxy;
+        bytes memory extraData;
+        (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(request.arbitratorId);
+        uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences[MetaEvidenceType.askOwnershipAdjustmentArbitrate], numberOfRulingOptions);
+        request.disputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
         request.status = Status.Disputed;
         disputeToRequest[request.disputeId] = requestId;
-        emit OwnershipAdjustmentArbitrateAsked(requestId, request.disputeId, request.newowner, request.tokenId, address(request.arbitrator), evidence);
+        emit OwnershipAdjustmentArbitrateAsked(requestId, request.disputeId, request.newowner, request.tokenId, address(arbitrableProxy), evidence);
     }
 
     /**
@@ -540,8 +541,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                 dst == address(0) ? _msgSender() : dst,
                 0,
                 Status.Disputed,
-                arbitrableProxy,
-                extraData,
+                arbitratorId,
                 disputeId
             );
         disputeToRequest[disputeId] = requestsCounter;
@@ -566,7 +566,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(requestId > 0, "unknown requestId");
         Request storage request = requests[requestId];
         require(request.status != Status.Accepted && request.status != Status.Rejected, "request over");
-        IArbitrableProxy arbitrableProxy = request.arbitrator;
+        IArbitrableProxy arbitrableProxy;
+        (arbitrableProxy, ) = arbitratorRegistry.arbitrator(request.arbitratorId);
         (, bool isRuled, uint256 ruling,) = arbitrableProxy.disputes(disputeId);
         require(isRuled, "ruling pending");
         bool accept = ruling == 1;
