@@ -114,7 +114,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         askOwnershipAdjustment,
         answerOwnershipAdjustment,
         askOwnershipAdjustmentArbitrate,
-        askOwnershipRestore
+        askOwnershipRestoreArbitrateMistake,          
+        askOwnershipRestoreArbitratePhishing,           
+        askOwnershipRestoreArbitrateProtocolBreach
     }
     mapping(MetaEvidenceType => string)    public metaEvidences;
     
@@ -509,18 +511,23 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      * by owner of original token if he or she lost access to protected token or it was stolen.
      * This function create dispute on external ERC-792 compatible arbitrator.
      */
-    function askOwnershipRestoreArbitrate(uint256 tokenId, address dst, uint256 arbitratorId, string memory evidence) public payable
+    function askOwnershipRestoreArbitrate(uint256 tokenId, address dst, uint256 arbitratorId, MetaEvidenceType metaEvidenceType, string memory evidence) public payable
     {
         require(!_hasRequest(tokenId), "have request");
         require(isOriginalOwner(tokenId, _msgSender()), "not owner");
         require(_exists(tokenId), "no token");
         require(!_isApprovedOrOwner(_msgSender(), tokenId), "already owner");
-
+        require(
+            metaEvidenceType == MetaEvidenceType.askOwnershipRestoreArbitrateMistake ||
+            metaEvidenceType == MetaEvidenceType.askOwnershipRestoreArbitratePhishing ||
+            metaEvidenceType == MetaEvidenceType.askOwnershipRestoreArbitrateProtocolBreach,
+            "wrong MetaEvidence"
+        );
         requestsCounter++;
         IArbitrableProxy arbitrableProxy;
         bytes memory extraData;
         (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
-        uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences[MetaEvidenceType.askOwnershipRestore], numberOfRulingOptions);
+        uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences[metaEvidenceType], numberOfRulingOptions);
         uint256 disputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
         if (tokens[tokenId].level == Security.Ultra)
         {
