@@ -302,7 +302,7 @@ contract DyArbitratorRegistry is Ownable
         return address(arbitrators[arbAddr].manager) != address(0);
     }
 
-    function checkArbitrator(
+    function checkArbitratorByOperation(
         IArbitrableProxy arbAddr,
         uint256          operation,
         address          contr) public view returns(bool)
