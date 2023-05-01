@@ -31,15 +31,15 @@ contract DyArbitratorRegistry is Ownable
     event Deployed();
     event SetMasterArbitrator(IArbitrableProxy arbitratorProxy);
     event SetMasterOperation(uint256 indexed operation, bytes extraData);
-    event ArbitratorAddRequested(uint256 indexed requestId);
+    event ArbitratorAddRequested(uint256 indexed requestId, address manager);
     event ArbitratorAdded(IArbitrableProxy indexed arbAddr, string name, address manager);
     event ArbitratorDeleted(IArbitrableProxy indexed arbAddr);
     event ArbitratorManagerChanged(IArbitrableProxy indexed arbAddr, address manager);
-    event OperationsAddRequested(uint256 indexed requestId);
+    event OperationsAddRequested(uint256 indexed requestId, address manager, IArbitrableProxy indexed arbAddr);
     event OperationAdded(IArbitrableProxy indexed arbAddr, uint256 indexed operation, bytes extraData);
     event OperationChanged(IArbitrableProxy indexed arbAddr, uint256 indexed operation, bytes extraData);
     event OperationRemoved(IArbitrableProxy indexed arbAddr, uint256 indexed operation);
-    event ContractsAddRequested(uint256 indexed requestId);
+    event ContractsAddRequested(uint256 indexed requestId, address manager, IArbitrableProxy indexed arbAddr);
     event ContractAdded(IArbitrableProxy indexed arbAddr, address indexed contr);
     event ContractRemoved(IArbitrableProxy indexed arbAddr, address indexed contr);
     event DisputeAccepted(uint256 indexed requestId);
@@ -124,7 +124,7 @@ contract DyArbitratorRegistry is Ownable
             extraData,
             contracts);
         master.submitEvidence(disputeId, evidence);
-        emit ArbitratorAddRequested(disputeId);
+        emit ArbitratorAddRequested(disputeId, _msgSender());
     }
 
     function addArbitrator(uint256 disputeId) internal
@@ -215,7 +215,7 @@ contract DyArbitratorRegistry is Ownable
             extraData,
             dummy);
         master.submitEvidence(disputeId, evidence);
-        emit OperationsAddRequested(disputeId);
+        emit OperationsAddRequested(disputeId, arb.manager, arbAddr);
     }
 
     /* Set extraData for already assigned operations allowed to arbitrator without disputing */
@@ -279,7 +279,7 @@ contract DyArbitratorRegistry is Ownable
             dummy2,
             contracts);
         master.submitEvidence(disputeId, evidence);
-        emit ContractsAddRequested(disputeId);
+        emit ContractsAddRequested(disputeId, arb.manager, arbAddr);
     }
 
     /* Removing contracts allowed to arbitrator without disputing */
