@@ -31,7 +31,7 @@ contract DyArbitratorRegistry is Ownable
     event Deployed();
     event SetMasterArbitrator(IArbitrableProxy arbitratorProxy);
     event SetMasterOperation(uint256 indexed operation, bytes extraData);
-    event ArbitratorAddRequested(uint256 indexed requestId, address manager);
+    event ArbitratorAddRequested(uint256 indexed requestId, address manager, IArbitrableProxy indexed arbAddr);
     event ArbitratorAdded(IArbitrableProxy indexed arbAddr, string name, address manager);
     event ArbitratorDeleted(IArbitrableProxy indexed arbAddr);
     event ArbitratorManagerChanged(IArbitrableProxy indexed arbAddr, address manager);
@@ -124,7 +124,7 @@ contract DyArbitratorRegistry is Ownable
             extraData,
             contracts);
         master.submitEvidence(disputeId, evidence);
-        emit ArbitratorAddRequested(disputeId, _msgSender());
+        emit ArbitratorAddRequested(disputeId, _msgSender(), arb);
     }
 
     function addArbitrator(uint256 disputeId) internal
