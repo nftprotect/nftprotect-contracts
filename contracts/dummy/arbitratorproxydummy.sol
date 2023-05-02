@@ -96,12 +96,13 @@ contract ArbitratorProxyDummy is Ownable, IArbitrableProxy, IArbitrable
 
     function rule(uint256 _disputeID, uint256 _ruling) public override
     {
-        DisputeStruct storage d = locToDisput[extToLoc[_disputeID]];
+        uint256 loc = extToLoc[_disputeID];
+        DisputeStruct storage d = locToDisput[loc];
         d.ruling = _ruling;
         d.isRuled = true;
         if(address(callback) != address(0))
         {
-            callback.fetchRuling(_disputeID);
+            callback.fetchRuling(loc);
         }
     }
 }
