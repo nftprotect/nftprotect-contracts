@@ -42,10 +42,9 @@ contract UserRegistry is Ownable, IUserRegistry
     event PartnerSet(address indexed partnet, uint256 percent);
     event DIDRegistered(address indexed did, string provider);
     event DIDUnregistered(address indexed did);
-    event SuccessorRequested(uint256 indexed disputeId, address indexed user, address indexed successor, uint256 arbitratorId);
-    event SuccessorAppealed(uint256 indexed disputeId);
-    event SuccessorApproved(uint256 indexed disputeId);
-    event SuccessorRejected(uint256 indexed disputeId);
+    event SuccessorRequested(uint256 indexed requestId, address indexed user, address indexed successor);
+    event SuccessorApproved(uint256 indexed requestId);
+    event SuccessorRejected(uint256 indexed requestId);
 
     modifier onlyNFTProtect()
     {
@@ -71,8 +70,11 @@ contract UserRegistry is Ownable, IUserRegistry
         address          user;
         address          successor;
         IArbitrableProxy arbitrator;
+        uint256          externalDisputeId;
+        uint256          localDisputeId;
     }
-    mapping(uint256 => SuccessorRequest) public disputes;
+    mapping(uint256 => SuccessorRequest) public requests;
+    uint256                              public requestsCounter;
 
     constructor(address areg, IUserDID did, address nftprotectaddr)
     {
@@ -210,12 +212,12 @@ contract UserRegistry is Ownable, IUserRegistry
         bytes memory extraData;
         (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
         uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidenceURI, numberOfRulingOptions);
-        // This id works both for the userregistry request, and the arbitrableproxy local dispute
         uint256 disputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
-        disputes[disputeId] = SuccessorRequest(user, _msgSender(), arbitrableProxy);
-        emit SuccessorRequested(disputeId, user, _msgSender(), arbitratorId);
+        requestsCounter++;
+        requests[requestsCounter] = SuccessorRequest(user, _msgSender(), arbitrableProxy, disputeId, externalDisputeId);
+        emit SuccessorRequested(requestsCounter, user, _msgSender());
         arbitrableProxy.submitEvidence(disputeId, evidence);
-        return disputeId;
+        return requestsCounter;
     }
 
     function submitMetaEvidence(string memory evidence) public
@@ -226,22 +228,22 @@ contract UserRegistry is Ownable, IUserRegistry
         // although `setMetaEvidenceLoader` did not need an event, so maybe no event is needed anymore.
     }
 
-    function fetchRuling(uint256 disputeId) external
+    function fetchRuling(uint256 requestId) external
     {
-        SuccessorRequest memory request = disputes[disputeId];
+        SuccessorRequest memory request = requests[requestId];
         IArbitrableProxy arbitrator = request.arbitrator;
-        (, bool isRuled, uint256 ruling,) = arbitrator.disputes(disputeId);
+        (, bool isRuled, uint256 ruling,) = arbitrator.disputes(request.localDisputeId);
         require(isRuled, "UserRegistry: Ruling pending");
 
         if (ruling == 1)
         {
             successors[request.user] = request.successor;
-            emit SuccessorApproved(disputeId);
+            emit SuccessorApproved(requestId);
         }
         else
         {
-            emit SuccessorRejected(disputeId);
+            emit SuccessorRejected(requestId);
         }
-        delete disputes[disputeId];
+        delete requests[requestId];
     }
 }
