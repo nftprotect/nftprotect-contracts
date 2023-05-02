@@ -38,6 +38,7 @@ contract ArbitratorProxyDummy is Ownable, IArbitrableProxy, IArbitrable
     constructor ()
     {
         dummy = new ArbitratorDummy();
+        dummy.transferOwnership(_msgSender());
     }
 
     function setRulingCallback(address _callback) public onlyOwner
