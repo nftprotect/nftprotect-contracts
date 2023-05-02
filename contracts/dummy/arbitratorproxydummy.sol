@@ -57,7 +57,7 @@ contract ArbitratorProxyDummy is Ownable, IArbitrableProxy, IArbitrable
         uint256 _numberOfRulingOptions
     ) public payable override returns (uint256 disputeID)
     {
-        disputeID = dummy.createDispute(_numberOfRulingOptions, _arbitratorExtraData);
+        disputeID = dummy.createDispute{value: msg.value}(_numberOfRulingOptions, _arbitratorExtraData);
         locID++;
         extToLoc[disputeID] = locID;
         locToDisput[locID] = DisputeStruct(_arbitratorExtraData, false, 0, disputeID);
