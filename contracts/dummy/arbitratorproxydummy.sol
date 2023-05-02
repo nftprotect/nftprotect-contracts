@@ -25,7 +25,6 @@ import "./arbitratordummy.sol";
 import "./iarbitrableproxy.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-interface RulingCallback {function fetchRuling(uint256 disputeId) external;}
 
 contract ArbitratorProxyDummy is Ownable, IArbitrableProxy, IArbitrable
 {
@@ -33,17 +32,11 @@ contract ArbitratorProxyDummy is Ownable, IArbitrableProxy, IArbitrable
     uint256                           public locID;
     mapping(uint256 => uint256)       public extToLoc;
     mapping(uint256 => DisputeStruct) public locToDisput;
-    RulingCallback                    public callback;
 
     constructor ()
     {
         dummy = new ArbitratorDummy();
         dummy.transferOwnership(_msgSender());
-    }
-
-    function setRulingCallback(address _callback) public onlyOwner
-    {
-        callback = RulingCallback(_callback);
     }
 
     function arbitrator() public override view
@@ -100,9 +93,5 @@ contract ArbitratorProxyDummy is Ownable, IArbitrableProxy, IArbitrable
         DisputeStruct storage d = locToDisput[loc];
         d.ruling = _ruling;
         d.isRuled = true;
-        if(address(callback) != address(0))
-        {
-            callback.fetchRuling(loc);
-        }
     }
 }
