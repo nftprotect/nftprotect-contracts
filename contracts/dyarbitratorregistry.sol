@@ -83,6 +83,28 @@ contract DyArbitratorRegistry is Ownable
         emit Deployed();
     }
 
+    function getRequest(uint256 requestId) public view returns (
+        IArbitrableProxy m,
+        MasterOperations op,
+        IArbitrableProxy arb,
+        string memory name,
+        address manager,
+        bytes memory operations,
+        bytes memory extraData,
+        bytes memory contracts
+    ) {
+        Request storage dispute = disputes[requestId];
+        return (
+            dispute.master,
+            dispute.op,
+            dispute.arb,
+            dispute.name,
+            dispute.manager,
+            abi.encodePacked(dispute.operations),
+            abi.encode(dispute.extraData),
+            abi.encodePacked(dispute.contracts));
+    }
+    
     function setMaster(
         IArbitrableProxy  arb,
         bytes[]  calldata extraData,
