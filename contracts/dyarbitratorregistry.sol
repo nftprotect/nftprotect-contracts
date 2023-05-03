@@ -354,7 +354,7 @@ contract DyArbitratorRegistry is Ownable
     {
         Request memory request = disputes[disputeId];
         IArbitrableProxy arb = request.arb;
-        (, bool isRuled, uint256 ruling,) = arb.disputes(disputeId);
+        (, bool isRuled, uint256 ruling,) = master.disputes(disputeId);
         require(isRuled, "ruling pending");
 
         if (ruling == 1)
