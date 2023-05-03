@@ -90,7 +90,7 @@ contract DyArbitratorRegistry is Ownable
         string memory name,
         address manager,
         bytes memory operations,
-        bytes memory extraData,
+        bytes[] memory extraData,
         bytes memory contracts
     ) {
         Request storage dispute = disputes[requestId];
@@ -101,10 +101,10 @@ contract DyArbitratorRegistry is Ownable
             dispute.name,
             dispute.manager,
             abi.encodePacked(dispute.operations),
-            abi.encode(dispute.extraData),
+            dispute.extraData,
             abi.encodePacked(dispute.contracts));
     }
-    
+
     function setMaster(
         IArbitrableProxy  arb,
         bytes[]  calldata extraData,
