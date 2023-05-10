@@ -22,10 +22,10 @@ This repository contains the smart contracts for NFT Protect. The system consist
 
 | Contract  | Address |
 | ------------- | ------------- |
-| `NftProtect.sol` | [0x08544c9c012e0b601f284589EB6d695edCCE5988](https://goerli.etherscan.io/address/0x08544c9c012e0b601f284589EB6d695edCCE5988) |
+| `NftProtect.sol` | [0xdccFE315E42c05c8699F3AC046b0A2F3115f4B02](https://goerli.etherscan.io/address/0xdccFE315E42c05c8699F3AC046b0A2F3115f4B02) |
 | `ArbitratorRegistry.sol` | [0x6b61f0a88C4A2CfeF2b9f948093C95531a6B9F04](https://goerli.etherscan.io/address/0x6b61f0a88C4A2CfeF2b9f948093C95531a6B9F04)  |
-| `UserRegistry.sol` | [0xb780b5f0949bF1B0bf33Ec5cDfceE85d739f014a](https://goerli.etherscan.io/address/0xb780b5f0949bF1B0bf33Ec5cDfceE85d739f014a) |
-| `NftpCoupons.sol` | [0x2032885310a80054B4b1C897959e09303b024C16](https://goerli.etherscan.io/address/0x2032885310a80054B4b1C897959e09303b024C16) |
+| `UserRegistry.sol` | [0xE2E809F3Aec329B8Af5482eB3B1AD6A90510e808](https://goerli.etherscan.io/address/0xE2E809F3Aec329B8Af5482eB3B1AD6A90510e808) |
+| `NftpCoupons.sol` | [0x03d8899BDad1F05F28373f04F05a0A9dC6BDad64](https://goerli.etherscan.io/address/0x03d8899BDad1F05F28373f04F05a0A9dC6BDad64) |
 
 
 ## License
