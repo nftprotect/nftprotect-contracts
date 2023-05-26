@@ -102,6 +102,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         uint256          arbitratorId;
         uint256          localDisputeId;
         uint256          externalDisputeId;
+        MetaEvidenceType metaevidence;
     }
     mapping(uint256 => Request)  public requests;
     mapping(uint256 => uint256)  public tokenToRequest;
@@ -329,7 +330,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                     Status.Disputed,
                     arbitratorId,
                     disputeId,
-                    externalDisputeId
+                    externalDisputeId,
+                    MetaEvidenceType.burn
                 );
             tokenToRequest[tokenId] = requestsCounter;
             disputeToRequest[disputeId] = requestsCounter;
@@ -406,7 +408,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                     Status.Disputed,
                     arbitratorId,
                     disputeId,
-                    externalDisputeId
+                    externalDisputeId,
+                    MetaEvidenceType.adjustOwnership
                 );
             tokenToRequest[tokenId] = requestsCounter;
             disputeToRequest[disputeId] = requestsCounter;
@@ -442,7 +445,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                 block.timestamp + duration,
                 Status.Initial,
                 arbitratorId,
-                0, 0
+                0, 0,
+                MetaEvidenceType.answerOwnershipAdjustment
             );
         tokenToRequest[tokenId] = requestsCounter;
         emit OwnershipAdjustmentAsked(requestsCounter, newowner, token.owner, tokenId);
@@ -551,7 +555,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                 Status.Disputed,
                 arbitratorId,
                 disputeId,
-                externalDisputeId
+                externalDisputeId,
+                metaEvidenceType
             );
         disputeToRequest[disputeId] = requestsCounter;
         tokenToRequest[tokenId] = requestsCounter;
