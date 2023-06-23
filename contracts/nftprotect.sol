@@ -625,8 +625,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                 userRegistry.isSuccessor(ownerOf(tokenId), spender);
     }
 
-    function _beforeTokenTransfer(address /*from*/, address to, uint256 tokenId) internal view
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize) internal virtual override(ERC721)
     {
+        super._beforeTokenTransfer(from, to, tokenId, batchSize);
         require(userRegistry.isRegistered(to), "unregistered");
         require(!_hasRequest(tokenId), "under dispute");
     }
