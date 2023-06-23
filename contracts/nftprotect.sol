@@ -111,14 +111,13 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     mapping(Security => uint256) public feeWei;
     enum MetaEvidenceType
     {
-        burn,
-        adjustOwnership,
-        askOwnershipAdjustment,
-        answerOwnershipAdjustment,
-        askOwnershipAdjustmentArbitrate,
-        askOwnershipRestoreArbitrateMistake,          
-        askOwnershipRestoreArbitratePhishing,           
-        askOwnershipRestoreArbitrateProtocolBreach
+        burn, // used in burn() - ultra
+        adjustOwnership, // used in adjustOwnership() - ultra
+        answerOwnershipAdjustment, // used in answerOwnershipAdjustment() - ultra
+        askOwnershipAdjustmentArbitrate, // used in askOwnershipAdjustmentArbitrate() - basic
+        askOwnershipRestoreArbitrateMistake, // used in askOwnershipRestoreArbitrate() - basic
+        askOwnershipRestoreArbitratePhishing, // used in askOwnershipRestoreArbitrate() - basic
+        askOwnershipRestoreArbitrateProtocolBreach // used in askOwnershipRestoreArbitrate() - basic
     }
     mapping(MetaEvidenceType => string)    public metaEvidences;
     
@@ -446,7 +445,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                 Status.Initial,
                 arbitratorId,
                 0, 0,
-                MetaEvidenceType.askOwnershipAdjustmentArbitrate
+                MetaEvidenceType.answerOwnershipAdjustment // ask have no dispute case, but answer does (ultra) 
             );
         tokenToRequest[tokenId] = requestsCounter;
         emit OwnershipAdjustmentAsked(requestsCounter, newowner, token.owner, tokenId);
@@ -480,7 +479,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                 IArbitrableProxy arbitrableProxy;
                 bytes memory extraData;
                 (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(request.arbitratorId);
-                request.metaevidence = MetaEvidenceType.answerOwnershipAdjustment;
                 request.externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences[request.metaevidence], numberOfRulingOptions);
                 request.localDisputeId = arbitrableProxy.externalIDtoLocalID(request.externalDisputeId);
                 arbitrableProxy.submitEvidence(request.localDisputeId, evidence);
