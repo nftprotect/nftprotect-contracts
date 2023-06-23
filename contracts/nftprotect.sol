@@ -459,7 +459,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     {
         Request storage request = requests[requestId];
         require(request.status == Status.Initial || request.status == Status.Rejected, "answered");
-    //    require(request.timeout > block.timestamp, "timeout");
         Original storage token = tokens[request.tokenId];
         require(isOriginalOwner(request.tokenId, _msgSender()), "not owner");
         if (accept)
