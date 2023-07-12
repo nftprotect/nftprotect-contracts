@@ -18,15 +18,34 @@ This repository contains the smart contracts for NFT Protect. The system consist
 
 ## Deployment Addresses
 
-### Goerli testnet
+### Testnet
+
+#### Goerli
 
 | Contract  | Address |
 | ------------- | ------------- |
-| `NftProtect.sol` | [0x5aDf8b955011a09726CbAB8d43622ac1B2fB344F](https://goerli.etherscan.io/address/0x5aDf8b955011a09726CbAB8d43622ac1B2fB344F) |
-| `ArbitratorRegistry.sol` | [0x6b61f0a88C4A2CfeF2b9f948093C95531a6B9F04](https://goerli.etherscan.io/address/0x6b61f0a88C4A2CfeF2b9f948093C95531a6B9F04)  |
-| `UserRegistry.sol` | [0x9B80f551E8f416b54EA9d71AF5acE49aA0609aAC](https://goerli.etherscan.io/address/0x9B80f551E8f416b54EA9d71AF5acE49aA0609aAC) |
-| `NftpCoupons.sol` | [0x3D9D532351C473C476b1077D1770f373B5f1AAc4](https://goerli.etherscan.io/address/0x3D9D532351C473C476b1077D1770f373B5f1AAc4) |
+| `NftProtect.sol` | [0x5aDf8b955011a09726CbAB8d43622ac1B2fB344F](https://goerli.etherscan.io/address/0x5aDf8b955011a09726CbAB8d43622ac1B2fB344F#code) |
+| `ArbitratorRegistry.sol` | [0x6b61f0a88C4A2CfeF2b9f948093C95531a6B9F04](https://goerli.etherscan.io/address/0x6b61f0a88C4A2CfeF2b9f948093C95531a6B9F04#code)  |
+| `UserRegistry.sol` | [0x9B80f551E8f416b54EA9d71AF5acE49aA0609aAC](https://goerli.etherscan.io/address/0x9B80f551E8f416b54EA9d71AF5acE49aA0609aAC#code) |
+| `NftpCoupons.sol` | [0x3D9D532351C473C476b1077D1770f373B5f1AAc4](https://goerli.etherscan.io/address/0x3D9D532351C473C476b1077D1770f373B5f1AAc4#code) |
 
+#### Sepolia
+
+| Contract  | Address |
+| ------------- | ------------- |
+| `NftProtect.sol` | [0xB1A382a0946528cAc1Bde3f419B69809CC347613](https://sepolia.etherscan.io/address/0xB1A382a0946528cAc1Bde3f419B69809CC347613#code) |
+| `ArbitratorRegistry.sol` | [0x0cEC9a8A65A5d9D0e39fa9B26e5F9dE3FDC4D7fb](https://sepolia.etherscan.io/address/0x0cEC9a8A65A5d9D0e39fa9B26e5F9dE3FDC4D7fb#code) |
+| `UserRegistry.sol` | [0x49ba52fe9dF9e55BeF56BE7D0F19eF8b645D51F3](https://sepolia.etherscan.io/address/0x49ba52fe9dF9e55BeF56BE7D0F19eF8b645D51F3#code) |
+| `NftpCoupons.sol` | [0x8c743B717e960fa00779b7b148D63a59009E9c9d](https://sepolia.etherscan.io/address/0x49ba52fe9dF9e55BeF56BE7D0F19eF8b645D51F3#code) |
+
+## Block Explorers
+
+- [Ethereum](https://etherscan.io)
+- [Goerli](https://goerli.etherscan.io)
+- [Rinkeby](https://rinkeby.etherscan.io)
+- [Sepolia](https://sepolia.etherscan.io)
+- [Polygon](https://polygonscan.com)
+- [Mumbai](https://mumbai.polygonscan.com)
 
 ## License
 
