@@ -22,16 +22,19 @@ along with the MultipleProtectHelper Contract. If not, see <http://www.gnu.org/l
 pragma solidity ^0.8.0;
 
 import "./nftprotect.sol";
+import "./iuserregistry.sol";
 
 
 contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
 {
     NFTProtect public   nftprotect;
+    IUserRegistry public userRegistry;
     uint256    internal allow;
 
     constructor(NFTProtect p)
     {
         nftprotect = p;
+        userRegistry = IUserRegistry(address(p.userRegistry()));
     }
 
     /**
@@ -65,10 +68,10 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
     function protect721(
         ERC721 contr,
         uint256[] memory tokensId,
-        NFTProtect.Security level,
+        IUserRegistry.Security level,
         address payable referrer) public payable
     {
-        uint256 feeWei = nftprotect.feeWei(level);
+        uint256 feeWei = userRegistry.feeForUser(msg.sender, level);
         require(msg.value == feeWei*tokensId.length, "MultipleProtectHelper: invalid value");
         allow = 1;
         for(uint256 i = 0; i < tokensId.length; i++)
@@ -91,10 +94,10 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
         ERC1155 contr,
         uint256[] memory tokensId,
         uint256[] memory amounts,
-        NFTProtect.Security level,
+        IUserRegistry.Security level,
         address payable referrer) public payable
     {
-        uint256 feeWei = nftprotect.feeWei(level);
+        uint256 feeWei = userRegistry.feeForUser(msg.sender, level);
         require(msg.value == feeWei*tokensId.length, "MultipleProtectHelper: invalid value");
         require(tokensId.length == amounts.length, "MultipleProtectHelper: wrong inputs");
         allow = 1;

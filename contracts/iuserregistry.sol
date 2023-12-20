@@ -27,6 +27,8 @@ interface IUserRegistry
 
     function scores(address user) external view returns(uint256);
 
+    function feeForUser(address user, Security level) external view returns(uint256);
+
     function isSuccessor(address user, address successor) external view returns(bool);
 
     function hasSuccessor(address user) external view returns(bool);

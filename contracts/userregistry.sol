@@ -120,6 +120,11 @@ contract UserRegistry is Ownable, IUserRegistry
         delete partners[partner];
     }
 
+    function feeForUser(address user, Security level) public view returns(uint256) {
+        uint256 discount = partners[user];
+        return feeWei[level] * (100 - discount) / 100;
+    }
+
     function processPayment(address user, address payable referrer, bool canUseCoupons, Security level) public override payable onlyNFTProtect
     {
         if (canUseCoupons && coupons.balanceOf(user) > 0)
@@ -129,8 +134,7 @@ contract UserRegistry is Ownable, IUserRegistry
         }
 
         // Apply discount for registered partners
-        uint256 discount = partners[user];
-        uint256 finalFee = feeWei[level] * (100 - discount) / 100;
+        uint256 finalFee = feeForUser(user, level);
 
         require(msg.value >= finalFee, "UserRegistry: Incorrect payment amount");
 
