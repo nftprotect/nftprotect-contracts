@@ -33,7 +33,13 @@ interface IUserRegistry
 
     function successorOf(address user) external view returns(address);
 
-    function processPayment(address user, address payable referrer, bool useCoupons, uint256 fee) external payable;
+    function processPayment(address user, address payable referrer, bool useCoupons, Security level) external payable;
 
     function setMetaEvidenceLoader(address mel) external;
+
+    enum Security
+    {
+        Basic,
+        Ultra
+    }
 }

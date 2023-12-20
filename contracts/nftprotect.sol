@@ -37,14 +37,13 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     using Address for address payable;
 
     event Deployed();
-    event FeeChanged(Security indexed level, uint256 feeWei);
     event UserRegistryChanged(address ureg);
     event ArbitratorRegistryChanged(address areg);
     event BurnOnActionChanged(bool boa);
     event BaseChanged(string base);
     event ScoreThresholdChanged(uint256 threshold);
     event MetaEvidenceLoaderChanged(address mel);
-    event Protected(uint256 indexed assetType, address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount, Security level);
+    event Protected(uint256 indexed assetType, address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount, IUserRegistry.Security level);
     event Unprotected(address indexed dst, uint256 indexed tokenId);
     event BurnArbitrateAsked(uint256 indexed requestId, address dst, uint256 indexed tokenId);
     event BurnAnswered(uint256 indexed requestId, bool accept);
@@ -54,12 +53,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     event OwnershipAdjustmentArbitrateAsked(uint256 indexed requestId, address dst, uint256 indexed tokenId);
     event OwnershipRestoreAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId);
     event OwnershipRestoreAnswered(uint256 indexed requestId, bool accept);
-
-    enum Security
-    {
-        Basic,
-        Ultra
-    }
 
     enum Standard
     {
@@ -75,7 +68,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         uint256  tokenId;
         uint256  amount; // ERC1155 and ERC20 only
         address  owner;
-        Security level;
+        IUserRegistry.Security level;
     }
     // Protected tokenId to original
     mapping(uint256 => Original) public tokens;
@@ -108,7 +101,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     mapping(uint256 => Request)  public requests;
     mapping(uint256 => uint256)  public tokenToRequest;
     mapping(uint256 => uint256)  public disputeToRequest;
-    mapping(Security => uint256) public feeWei;
     enum MetaEvidenceType
     {
         burn, // used in burn() - ultra
@@ -137,19 +129,11 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     constructor(address areg) ERC721("NFT Protect", "pNFT")
     {
         emit Deployed();
-        setFee(Security.Basic, 0);
-        setFee(Security.Ultra, 0);
         setArbitratorRegistry(areg);
         setBurnOnAction(true);
         setScoreThreshold(0);
         setBase("");
         setMetaEvidenceLoader(_msgSender());
-    }
-
-    function setFee(Security level, uint256 fw) public onlyOwner
-    {
-        feeWei[level] = fw;
-        emit FeeChanged(level, fw);
     }
 
     function setArbitratorRegistry(address areg) public onlyOwner
@@ -253,15 +237,16 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
              userRegistry.isSuccessor(token.owner, candidate));
     }
 
-    function _protectBefore(Security level, address payable referrer) internal
+    function _protectBefore(IUserRegistry.Security level, address payable referrer) internal
     {
-        require(level == Security.Basic || userRegistry.scores(_msgSender()) >= scoreThreshold, "not enough scores");
+        require(level == IUserRegistry.Security.Basic || userRegistry.scores(_msgSender()) >= scoreThreshold, "not enough scores");
         require(userRegistry.isRegistered(_msgSender()), "unregistered");
         userRegistry.processPayment{value: msg.value}(
             _msgSender(),
             referrer,
-            level == Security.Basic,
-            feeWei[level]);
+            level == IUserRegistry.Security.Basic,
+            level
+        );
     }
 
     /**
@@ -275,7 +260,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      * * ERC1155: tokenId, amount
      * * ERC20:   emount
      */
-    function protect(Standard std, address contr, uint256 tokenId, uint256 amount, Security level, address payable referrer) public payable returns(uint256)
+    function protect(Standard std, address contr, uint256 tokenId, uint256 amount, IUserRegistry.Security level, address payable referrer) public payable returns(uint256)
     {
         _protectBefore(level, referrer);
         _mint(_msgSender(), ++tokensCounter);
@@ -307,7 +292,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     {
         require(_isApprovedOrOwner(_msgSender(), tokenId), "not owner");
         require(isOriginalOwner(tokenId, _msgSender()), "need to askOwnershipAdjustment");
-        if(tokens[tokenId].level == Security.Basic)
+        if(tokens[tokenId].level == IUserRegistry.Security.Basic)
         {
             _burn(dst == address(0) ? _msgSender() : dst, tokenId);
         }
@@ -380,7 +365,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(!_hasRequest(tokenId), "have request");
         require(isOriginalOwner(tokenId, _msgSender()), "not owner");
         Original storage token = tokens[tokenId];
-        if(token.level == Security.Basic)
+        if(token.level == IUserRegistry.Security.Basic)
         {
             token.owner = ownerOf(tokenId);
             emit OwnershipAdjusted(token.owner, _msgSender(), tokenId);
@@ -428,7 +413,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(!isOriginalOwner(tokenId, _msgSender()), "already owner");
         requestsCounter++;
         Original storage token = tokens[tokenId];
-        if (token.level == Security.Ultra)
+        if (token.level == IUserRegistry.Security.Ultra)
         {
             require(dst != address(0) && dst != _msgSender(), "invalid destination");
         }
@@ -463,7 +448,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(isOriginalOwner(request.tokenId, _msgSender()), "not owner");
         if (accept)
         {
-            if (token.level == Security.Basic)
+            if (token.level == IUserRegistry.Security.Basic)
             {
                 request.status = Status.Accepted;
                 token.owner = request.newowner;
@@ -541,7 +526,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences[metaEvidenceType], numberOfRulingOptions);
         uint256 disputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
         arbitrableProxy.submitEvidence(disputeId, evidence);
-        if (tokens[tokenId].level == Security.Ultra)
+        if (tokens[tokenId].level == IUserRegistry.Security.Ultra)
         {
             require(dst != address(0) && dst != _msgSender(), "bad dst");
         }

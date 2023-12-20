@@ -38,8 +38,9 @@ contract UserRegistry is Ownable, IUserRegistry
     event ArbitratorRegistryChanged(address areg);
     event AffiliatePercentChanged(uint256 percent);
     event AffiliatePayment(address indexed from, address indexed to, uint256 amountWei);
+    event FeeChanged(Security indexed level, uint256 feeWei);
     event ReferrerSet(address indexed user, address indexed referrer);
-    event PartnerSet(address indexed partnet, uint256 percent);
+    event PartnerSet(address indexed partner, uint8 discount);
     event DIDRegistered(address indexed did, string provider);
     event DIDUnregistered(address indexed did);
     event SuccessorRequested(uint256 indexed requestId, address indexed user, address indexed successor);
@@ -63,7 +64,8 @@ contract UserRegistry is Ownable, IUserRegistry
 
     mapping(address => address)         public successors;
     mapping(address => address payable) public referrers;
-    mapping(address => uint256)         public partners;
+    mapping(address => uint8) public partners;
+    mapping(Security => uint256) public feeWei;
 
     struct SuccessorRequest
     {
@@ -81,11 +83,19 @@ contract UserRegistry is Ownable, IUserRegistry
         emit Deployed();
         nftprotect = nftprotectaddr;
         metaEvidenceLoader = _msgSender();
+        setFee(Security.Basic, 0);
+        setFee(Security.Ultra, 0);
         setAffiliatePercent(10);
         setArbitratorRegistry(areg);
         registerDID(did);
         coupons = new NFTPCoupons(address(this));
         coupons.transferOwnership(_msgSender());
+    }
+
+    function setFee(Security level, uint256 fw) public onlyOwner
+    {
+        feeWei[level] = fw;
+        emit FeeChanged(level, fw);
     }
     
     function setArbitratorRegistry(address areg) public onlyOwner
@@ -100,42 +110,48 @@ contract UserRegistry is Ownable, IUserRegistry
         emit AffiliatePercentChanged(percent);
     }
 
-    function setPartner(address partner, uint256 percent) public onlyOwner
-    {
-        partners[partner] = percent;
-        emit PartnerSet(partner, percent);
+    function setPartner(address partner, uint8 discount) public onlyOwner {
+        require(discount <= 100, "UserRegistry: Invalid discount");
+        partners[partner] = discount;
+        emit PartnerSet(partner, discount);
     }
 
-    function processPayment(address user, address payable referrer, bool canUseCoupons, uint256 fee) public override payable onlyNFTProtect
+    function deletePartner(address partner) public onlyOwner {
+        delete partners[partner];
+    }
+
+    function processPayment(address user, address payable referrer, bool canUseCoupons, Security level) public override payable onlyNFTProtect
     {
         if (canUseCoupons && coupons.balanceOf(user) > 0)
         {
             coupons.burnFrom(user, 1);
             return;
         }
-        require(msg.value == fee, "wrong payment");
-        if (referrers[user] == address(0) && referrer != address(0))
-        {
-            referrers[user] = referrer;
-            emit ReferrerSet(user, referrer);
-        }
-        referrer = referrers[user];
-        uint256 value = msg.value;
-        if (referrer != address(0))
-        {
-            require(referrer != user, "UserRegistry: invalid referrer");
-            uint256 percent = partners[referrer]==0 ? affiliatePercent : partners[referrer];
-            uint256 reward = value * percent / 100;
-            if (reward > 0)
-            {
-                value -= reward;
-                referrer.sendValue(reward);
-                emit AffiliatePayment(user, referrer, reward);
+
+        // Apply discount for registered partners
+        uint256 discount = partners[user];
+        uint256 finalFee = feeWei[level] * (100 - discount) / 100;
+
+        require(msg.value >= finalFee, "UserRegistry: Incorrect payment amount");
+
+        // Process affiliate payment if there's a referrer
+        if (referrer != address(0) && referrer != user) {
+            uint256 affiliatePayment = finalFee * affiliatePercent / 100;
+            if (affiliatePayment > 0) {
+                referrer.sendValue(affiliatePayment);
+                emit AffiliatePayment(user, referrer, affiliatePayment);
             }
+            finalFee -= affiliatePayment;
         }
-        if (value > 0)
-        {
-            payable(owner()).sendValue(value);
+
+        // Transfer the remaining fee to the contract owner
+        if (finalFee > 0) {
+            payable(owner()).sendValue(finalFee);
+        }
+
+        // Refund any excess payment
+        if (msg.value > finalFee) {
+            payable(msg.sender).sendValue(msg.value - finalFee);
         }
     }
 
