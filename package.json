@@ -3,7 +3,12 @@
   "version": "1.0.0",
   "description": "Decentralized self-custody protocol for safeguarding digital assets from theft and private key compromise",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "hardhat compile",
+    "deploy": "hardhat run ./scripts/deploy.ts",
+    "verify": "hardhat run ./scripts/verify.ts",
+    "configure": "hardhat run ./scripts/configure.ts",
+    "updateReadme": "hardhat run ./scripts/updateReadme.ts",
+    "clean": "rm ./contracts.json"
   },
   "repository": {
     "type": "git",
@@ -23,25 +28,25 @@
   "homepage": "https://github.com/nftprotect/nftprotect-contracts#readme",
   "dependencies": {
     "@kleros/erc-792": "^8.0.0",
-    "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
-    "@nomicfoundation/hardhat-toolbox-viem": "2.0.0",
-    "@nomicfoundation/hardhat-verify": "^2.0.0",
-    "@nomicfoundation/hardhat-viem": "^1.0.0",
-    "@openzeppelin/contracts": "^4.8.1",
-    "@types/chai": "^4.2.0",
-    "@types/chai-as-promised": "^7.1.6",
-    "@types/mocha": ">=9.1.0",
-    "chai": "^4.3.10",
     "dotenv": "^16.3.1",
-    "hardhat-gas-reporter": "^1.0.8",
-    "solidity-coverage": "^0.8.1",
-    "viem": "^1.20.3"
+    "@openzeppelin/contracts": "^4.8.1"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-waffle": "^2.0.5",
     "@types/node": "^20.10.5",
     "hardhat": "^2.19.3",
     "ts-node": "^10.9.2",
-    "typescript": "~5.0.4"
+    "typescript": "~5.0.4",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
+    "@nomicfoundation/hardhat-toolbox-viem": "2.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "@nomicfoundation/hardhat-viem": "^1.0.0",
+    "@types/chai": "^4.2.0",
+    "@types/chai-as-promised": "^7.1.6",
+    "@types/mocha": ">=9.1.0",
+    "chai": "^4.3.10",
+    "hardhat-gas-reporter": "^1.0.8",
+    "solidity-coverage": "^0.8.1",
+    "viem": "^1.20.3"
   }
 }
