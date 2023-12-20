@@ -6,7 +6,8 @@ import {
     ultraFeeWei,
     arbitrators,
     metaEvidences,
-    metaEvidenceLoader
+    metaEvidenceLoader,
+    metadataURIs
 } from '../contracts.config';
 
 
@@ -81,35 +82,24 @@ async function setNFTProtectUserRegistry() {
     return contract
 }
 
-// UserRegistry
-
-async function configureUserRegistryFees() {
-    if (!networkData["UserRegistry"]) {
-        throw Error("UserRegistry contract address not found in contracts.json");
+async function setNFTProtectBaseURI() {  
+    if (!networkData["NFTProtect"]) {
+      throw Error("NFTProtect contract address not found in contracts.json");
     }
+  
+    const contract = await hre.viem.getContractAt("NFTProtect", networkData["NFTProtect"]);
+    const baseUri = await contract.read.base();
+    const newBaseUri = metadataURIs[networkName]
 
-    const contract = await hre.viem.getContractAt("UserRegistry", networkData["UserRegistry"]);
-
-    const currentBasicFee = await contract.read.feeWei([0]);
-    const currentUltraFee = await contract.read.feeWei([1]);
-
-    if (currentBasicFee !== basicFeeWei) {
-        console.log(`Setting basicFeeWei to ${basicFeeWei}...`);
-        const hash = await contract.write.setFee([0, basicFeeWei]);
-        await processTransaction(hash)
-    } else {
-        console.log(`BasicFeeWei is already set to ${basicFeeWei}`);
+    if (baseUri === newBaseUri) {
+      console.log(`NFTProtect: Base URI ${baseUri} already set`);
+      return contract;
     }
-
-    if (currentUltraFee !== ultraFeeWei) {
-        console.log(`Setting ultraFeeWei to ${ultraFeeWei}...`);
-        const hash = await contract.write.setFee([1, ultraFeeWei]);
-        await processTransaction(hash)
-    } else {
-        console.log(`UltraFeeWei is already set to ${ultraFeeWei}`);
-    }
-
-    return contract;
+    
+    console.log(`Setting Base URI ${newBaseUri}...`);
+    const hash = await contract.write.setBase([newBaseUri]);
+    await processTransaction(hash)
+    return contract
 }
 
 async function setMetaEvidenceLoader(address: `0x${string}`) {
@@ -171,6 +161,37 @@ async function configureNFTProtectMetaEvidence() {
     return contract;
 }
 
+// UserRegistry
+
+async function configureUserRegistryFees() {
+    if (!networkData["UserRegistry"]) {
+        throw Error("UserRegistry contract address not found in contracts.json");
+    }
+
+    const contract = await hre.viem.getContractAt("UserRegistry", networkData["UserRegistry"]);
+
+    const currentBasicFee = await contract.read.feeWei([0]);
+    const currentUltraFee = await contract.read.feeWei([1]);
+
+    if (currentBasicFee !== basicFeeWei) {
+        console.log(`Setting basicFeeWei to ${basicFeeWei}...`);
+        const hash = await contract.write.setFee([0, basicFeeWei]);
+        await processTransaction(hash)
+    } else {
+        console.log(`BasicFeeWei is already set to ${basicFeeWei}`);
+    }
+
+    if (currentUltraFee !== ultraFeeWei) {
+        console.log(`Setting ultraFeeWei to ${ultraFeeWei}...`);
+        const hash = await contract.write.setFee([1, ultraFeeWei]);
+        await processTransaction(hash)
+    } else {
+        console.log(`UltraFeeWei is already set to ${ultraFeeWei}`);
+    }
+
+    return contract;
+}
+
 async function main() {
     try {
         client = await hre.viem.getPublicClient();
@@ -180,6 +201,7 @@ async function main() {
             console.log(`ArbitratorRegistry ${arbRegistry.address} configured successfully`);
             console.log(`2. NFTProtect:`);
             await setNFTProtectUserRegistry();
+            await setNFTProtectBaseURI();
             const nftProtect = await configureNFTProtectMetaEvidence();
             console.log(`NFTProtect ${nftProtect.address} configured successfully`);
             console.log(`3. UserRegistry:`);

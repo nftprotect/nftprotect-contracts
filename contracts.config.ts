@@ -16,6 +16,11 @@ export const arbitrators = {
         "extraData": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003"
     }
 }
+// App metadata endpoints
+export const metadataURIs = {
+    "goerli": "https://dev.nftprotect.app/api/metadata/5/",
+    "sepolia": "https://dev.nftprotect.app/api/metadata/11155111/"
+}
 // List of MetaEvidences to be registered
 export const metaEvidences = [
     {
