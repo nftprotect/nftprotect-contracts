@@ -118,6 +118,7 @@ contract UserRegistry is Ownable, IUserRegistry
 
     function deletePartner(address partner) public onlyOwner {
         delete partners[partner];
+        emit PartnerSet(partner, 0);
     }
 
     function feeForUser(address user, Security level) public view returns(uint256) {
