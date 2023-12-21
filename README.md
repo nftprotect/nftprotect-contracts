@@ -39,18 +39,18 @@ yarn export-abi
 ### Sepolia
 - [UserDIDDummyAllowAll](https://sepolia.etherscan.io/address/0xc29da1a7998414374c05664fedc90ecbefbe5b2d)
 - [ArbitratorRegistry](https://sepolia.etherscan.io/address/0x423f42f53f67356e7bc9093410303c68c8478fe7)
-- [NFTProtect](https://sepolia.etherscan.io/address/0x5de5be0552e9e87e3b40f1f3e3388ca97f347f1a)
-- [UserRegistry](https://sepolia.etherscan.io/address/0x2d244d1c312db924ecafbe51697b3726851e2bdd)
-- [NFTPCoupons](https://sepolia.etherscan.io/address/0x55b328a60C99E9FCc8878062aBDE5800042a0b5c)
-- [MultipleProtectHelper](https://sepolia.etherscan.io/address/0x839a638d77ecd97dfbf23735ae7ff3558f7293b9)
+- [NFTProtect](https://sepolia.etherscan.io/address/0xd363012732291f68eaea10beb05c497de6a02afd)
+- [UserRegistry](https://sepolia.etherscan.io/address/0x5a38518911389d409b11f4b4b9908fb1672fb082)
+- [NFTPCoupons](https://sepolia.etherscan.io/address/0x47459E91900264153D331bddAf9449905bcBE6B5)
+- [MultipleProtectHelper](https://sepolia.etherscan.io/address/0x23281922f679895490450a24e6854eb7fab5b0e2)
 
 ### Goerli
 - [UserDIDDummyAllowAll](https://goerli.etherscan.io/address/0x53FeB2b6C816a88aB192a94113d03c5E17EB1fF2)
 - [ArbitratorRegistry](https://goerli.etherscan.io/address/0x094c049f25d6ea178b3262887d37ad9da36b2355)
-- [NFTProtect](https://goerli.etherscan.io/address/0x6ae4800040e588c2fa2e96ee68a987013d9afd13)
-- [UserRegistry](https://goerli.etherscan.io/address/0x35c0d4999655ba4a956889640d7c1a8d11a2925a)
-- [NFTPCoupons](https://goerli.etherscan.io/address/0x6CbEAE91BCd7B3f5389780564c2ca8FDe2D4E59e)
-- [MultipleProtectHelper](https://goerli.etherscan.io/address/0xcdaf54ad4514ee5d27bb4a0cd548f48ca6cd174f)
+- [NFTProtect](https://goerli.etherscan.io/address/0x13367954799c3c89452b0a634f898f5d2f3d6e84)
+- [UserRegistry](https://goerli.etherscan.io/address/0xbfdc9f6ba697312a8a86a19aaff036e720fce016)
+- [NFTPCoupons](https://goerli.etherscan.io/address/0x90F888c0Da7Aa0ca87ABf2ee92bdF8C1d3A03882)
+- [MultipleProtectHelper](https://goerli.etherscan.io/address/0x80248c3339dcf11d4b4819b5a27e391c86e32f58)
 
 ## License
 

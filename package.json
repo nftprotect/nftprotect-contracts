@@ -7,7 +7,7 @@
     "deploy": "hardhat run ./scripts/deploy.ts",
     "verify": "hardhat run ./scripts/verify.ts",
     "configure": "hardhat run ./scripts/configure.ts",
-    "updateReadme": "hardhat run ./scripts/updateReadme.ts",
+    "update-readme": "hardhat run ./scripts/updateReadme.ts",
     "export-abi": "hardhat export-abi",
     "clean": "rm ./contracts.json; hardhat clear-abi"
   },

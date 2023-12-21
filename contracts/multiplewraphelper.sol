@@ -69,6 +69,7 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
         ERC721 contr,
         uint256[] memory tokensId,
         IUserRegistry.Security level,
+        address user,
         address payable referrer) public payable
     {
         uint256 feeWei = userRegistry.feeForUser(msg.sender, level);
@@ -84,6 +85,7 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
                 tokensId[i],
                 1,
                 level,
+                user,
                 referrer);
             nftprotect.transferFrom(address(this), _msgSender(), pNFT);
         }
@@ -95,6 +97,7 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
         uint256[] memory tokensId,
         uint256[] memory amounts,
         IUserRegistry.Security level,
+        address user,
         address payable referrer) public payable
     {
         uint256 feeWei = userRegistry.feeForUser(msg.sender, level);
@@ -111,6 +114,7 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
                 tokensId[i],
                 amounts[i],
                 level,
+                user,
                 referrer);
             nftprotect.transferFrom(address(this), _msgSender(), pNFT);
         }

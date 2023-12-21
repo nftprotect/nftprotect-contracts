@@ -237,18 +237,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
              userRegistry.isSuccessor(token.owner, candidate));
     }
 
-    function _protectBefore(IUserRegistry.Security level, address payable referrer) internal
-    {
-        require(level == IUserRegistry.Security.Basic || userRegistry.scores(_msgSender()) >= scoreThreshold, "not enough scores");
-        require(userRegistry.isRegistered(_msgSender()), "unregistered");
-        userRegistry.processPayment{value: msg.value}(
-            _msgSender(),
-            referrer,
-            level == IUserRegistry.Security.Basic,
-            level
-        );
-    }
-
     /**
      * @dev Protect token, issued by `contr` contract.
      * Owner of token must approve 'amount' of 'tokenId' tokens for NFTProtect contract to make
@@ -260,11 +248,22 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      * * ERC1155: tokenId, amount
      * * ERC20:   emount
      */
-    function protect(Standard std, address contr, uint256 tokenId, uint256 amount, IUserRegistry.Security level, address payable referrer) public payable returns(uint256)
+    function protect(Standard std, address contr, uint256 tokenId, uint256 amount, IUserRegistry.Security level, address user, address payable referrer) public payable returns(uint256)
     {
-        _protectBefore(level, referrer);
-        _mint(_msgSender(), ++tokensCounter);
-        tokens[tokensCounter] = Original(std, contr, tokenId, amount, _msgSender(), level);
+        if (user == address(0)) 
+        {
+            user = _msgSender();
+        } 
+        require(userRegistry.isRegistered(user), "unregistered");
+        require(level == IUserRegistry.Security.Basic || userRegistry.scores(user) >= scoreThreshold, "not enough scores");
+        userRegistry.processPayment{value: msg.value}(
+            _msgSender(),
+            referrer,
+            level == IUserRegistry.Security.Basic,
+            level
+        );
+        _mint(user, ++tokensCounter);
+        tokens[tokensCounter] = Original(std, contr, tokenId, amount, user, level);
         allow = 1;
         if(std == Standard.ERC721)
         {
@@ -278,7 +277,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         {
             IERC20(contr).transferFrom(_msgSender(), address(this), amount);
         }
-        emit Protected(uint256(std), _msgSender(), contr, tokenId, tokensCounter, amount, level);
+        emit Protected(uint256(std), user, contr, tokenId, tokensCounter, amount, level);
         allow = 0;
         return tokensCounter;
     }
