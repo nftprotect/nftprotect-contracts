@@ -158,7 +158,7 @@ contract UserRegistry is Ownable, IUserRegistry
         // Process affiliate payment if there's a referrer
         if (referrer != address(0)) {
             require(referrer != user, "UserRegistry: invalid referrer");
-            uint8 ap = partners[user].affiliatePercent > 0 ? partners[user].affiliatePercent : affiliatePercent;
+            uint8 ap = partners[referrer].affiliatePercent > 0 ? partners[referrer].affiliatePercent : affiliatePercent;
             uint256 affiliatePayment = finalFee * ap / 100;
             if (affiliatePayment > 0) {
                 referrer.sendValue(affiliatePayment);
