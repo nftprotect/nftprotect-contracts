@@ -39,18 +39,18 @@ yarn export-abi
 ### Sepolia
 - [UserDIDDummyAllowAll](https://sepolia.etherscan.io/address/0xc29da1a7998414374c05664fedc90ecbefbe5b2d)
 - [ArbitratorRegistry](https://sepolia.etherscan.io/address/0x423f42f53f67356e7bc9093410303c68c8478fe7)
-- [NFTProtect](https://sepolia.etherscan.io/address/0xd363012732291f68eaea10beb05c497de6a02afd)
-- [UserRegistry](https://sepolia.etherscan.io/address/0x5a38518911389d409b11f4b4b9908fb1672fb082)
-- [NFTPCoupons](https://sepolia.etherscan.io/address/0x47459E91900264153D331bddAf9449905bcBE6B5)
-- [MultipleProtectHelper](https://sepolia.etherscan.io/address/0x23281922f679895490450a24e6854eb7fab5b0e2)
+- [NFTProtect](https://sepolia.etherscan.io/address/0xc8aea4812e3baf160c97782d349525327f171483)
+- [UserRegistry](https://sepolia.etherscan.io/address/0x84439de25faf197929bd3f81de3a650cae6b76ff)
+- [NFTPCoupons](https://sepolia.etherscan.io/address/0x0cD0E732b600b282AA5e41dc0Ca7203726608745)
+- [MultipleProtectHelper](https://sepolia.etherscan.io/address/0x7b508ac423a2b503c486e4bdf18df0742f1064af)
 
 ### Goerli
 - [UserDIDDummyAllowAll](https://goerli.etherscan.io/address/0x53FeB2b6C816a88aB192a94113d03c5E17EB1fF2)
 - [ArbitratorRegistry](https://goerli.etherscan.io/address/0x094c049f25d6ea178b3262887d37ad9da36b2355)
-- [NFTProtect](https://goerli.etherscan.io/address/0x13367954799c3c89452b0a634f898f5d2f3d6e84)
-- [UserRegistry](https://goerli.etherscan.io/address/0xbfdc9f6ba697312a8a86a19aaff036e720fce016)
-- [NFTPCoupons](https://goerli.etherscan.io/address/0x90F888c0Da7Aa0ca87ABf2ee92bdF8C1d3A03882)
-- [MultipleProtectHelper](https://goerli.etherscan.io/address/0x80248c3339dcf11d4b4819b5a27e391c86e32f58)
+- [NFTProtect](https://goerli.etherscan.io/address/0xa4868ab18cf07b25e70d1bd21c7e1416103d8fd7)
+- [UserRegistry](https://goerli.etherscan.io/address/0x0d009bb504d9bd71dd5f0f1cd99ba2077e23f88e)
+- [NFTPCoupons](https://goerli.etherscan.io/address/0x717E3407972674C8141969d6393F81975EF14f42)
+- [MultipleProtectHelper](https://goerli.etherscan.io/address/0xb1854272eeb913096d2a95565226f852cccf0478)
 
 ## License
 
