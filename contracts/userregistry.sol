@@ -40,7 +40,7 @@ contract UserRegistry is Ownable, IUserRegistry
     event AffiliatePayment(address indexed from, address indexed to, uint256 amountWei);
     event FeeChanged(Security indexed level, uint256 feeWei);
     event ReferrerSet(address indexed user, address indexed referrer);
-    event PartnerSet(address indexed partner, uint8 discount);
+    event PartnerSet(address indexed partner, uint8 discount, uint8 affiliatePercent);
     event DIDRegistered(address indexed did, string provider);
     event DIDUnregistered(address indexed did);
     event SuccessorRequested(uint256 indexed requestId, address indexed user, address indexed successor);
@@ -122,12 +122,12 @@ contract UserRegistry is Ownable, IUserRegistry
             discount,
             affPercent
         );
-        emit PartnerSet(partner, discount);
+        emit PartnerSet(partner, discount, affPercent);
     }
 
     function deletePartner(address partner) public onlyOwner {
         delete partners[partner];
-        emit PartnerSet(partner, 0);
+        emit PartnerSet(partner, 0, 0);
     }
 
     function feeForUser(address user, Security level) public view returns(uint256) {
