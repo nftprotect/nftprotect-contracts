@@ -100,6 +100,10 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
         address user,
         address payable referrer) public payable
     {
+        if (user == address(0)) 
+        {
+            user = _msgSender();
+        } 
         uint256 feeWei = userRegistry.feeForUser(msg.sender, level);
         require(msg.value == feeWei*tokensId.length, "MultipleProtectHelper: invalid value");
         require(tokensId.length == amounts.length, "MultipleProtectHelper: wrong inputs");
@@ -108,7 +112,7 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
         {
             contr.safeTransferFrom(_msgSender(), address(this), tokensId[i], amounts[i], '');
             contr.setApprovalForAll(address(nftprotect), true);
-            uint256 pNFT = nftprotect.protect{value: feeWei}(
+            nftprotect.protect{value: feeWei}(
                 NFTProtect.Standard.ERC1155,
                 address(contr),
                 tokensId[i],
@@ -116,7 +120,6 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
                 level,
                 user,
                 referrer);
-            nftprotect.transferFrom(address(this), _msgSender(), pNFT);
         }
         allow = 0;
     }
