@@ -135,7 +135,7 @@ contract UserRegistry is Ownable, IUserRegistry
         return feeWei[level] * (100 - discount) / 100;
     }
 
-    function processPayment(address user, address payable referrer, bool canUseCoupons, Security level) public override payable onlyNFTProtect
+    function processPayment(address sender, address user, address payable referrer, bool canUseCoupons, Security level) public override payable onlyNFTProtect
     {
         if (canUseCoupons && coupons.balanceOf(user) > 0)
         {
@@ -144,12 +144,20 @@ contract UserRegistry is Ownable, IUserRegistry
         }
 
         // Apply discount for registered partners
-        uint256 finalFee = feeForUser(user, level);
+        uint256 finalFee = feeForUser(sender, level);
 
-        require(msg.value >= finalFee, "UserRegistry: Incorrect payment amount");
+        require(msg.value == finalFee, "UserRegistry: Incorrect payment amount");
+
+        if (referrers[user] == address(0) && referrer != address(0))
+        {
+            referrers[user] = referrer;
+            emit ReferrerSet(user, referrer);
+        }
+        referrer = referrers[user];
 
         // Process affiliate payment if there's a referrer
-        if (referrer != address(0) && referrer != user) {
+        if (referrer != address(0)) {
+            require(referrer != user, "UserRegistry: invalid referrer");
             uint8 ap = partners[user].affiliatePercent > 0 ? partners[user].affiliatePercent : affiliatePercent;
             uint256 affiliatePayment = finalFee * ap / 100;
             if (affiliatePayment > 0) {
@@ -162,11 +170,6 @@ contract UserRegistry is Ownable, IUserRegistry
         // Transfer the remaining fee to the contract owner
         if (finalFee > 0) {
             payable(owner()).sendValue(finalFee);
-        }
-
-        // Refund any excess payment
-        if (msg.value > finalFee) {
-            payable(user).sendValue(msg.value - finalFee);
         }
     }
 

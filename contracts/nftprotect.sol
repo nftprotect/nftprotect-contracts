@@ -258,6 +258,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(level == IUserRegistry.Security.Basic || userRegistry.scores(user) >= scoreThreshold, "not enough scores");
         userRegistry.processPayment{value: msg.value}(
             _msgSender(),
+            user,
             referrer,
             level == IUserRegistry.Security.Basic,
             level
