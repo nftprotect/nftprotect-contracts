@@ -36,7 +36,7 @@ contract UserRegistry is Ownable, IUserRegistry
 
     event Deployed();
     event ArbitratorRegistryChanged(address areg);
-    event AffiliatePercentChanged(uint256 percent);
+    event AffiliatePercentChanged(uint8 percent);
     event AffiliatePayment(address indexed from, address indexed to, uint256 amountWei);
     event FeeChanged(Security indexed level, uint256 feeWei);
     event ReferrerSet(address indexed user, address indexed referrer);
@@ -59,13 +59,19 @@ contract UserRegistry is Ownable, IUserRegistry
     address            public   metaEvidenceLoader;
     ArbitratorRegistry public   arbitratorRegistry;
     IUserDID[]         public   dids;
-    uint256            public   affiliatePercent;
+    uint8              public   affiliatePercent;
     uint256            constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
 
     mapping(address => address)         public successors;
     mapping(address => address payable) public referrers;
-    mapping(address => uint8) public partners;
+    mapping(address => Partner) public partners;
     mapping(Security => uint256) public feeWei;
+
+    struct Partner
+    {
+        uint8           discount;
+        uint8           affiliatePercent;
+    }
 
     struct SuccessorRequest
     {
@@ -104,15 +110,18 @@ contract UserRegistry is Ownable, IUserRegistry
         emit ArbitratorRegistryChanged(areg);
     }
 
-    function setAffiliatePercent(uint256 percent) public onlyOwner
+    function setAffiliatePercent(uint8 percent) public onlyOwner
     {
         affiliatePercent = percent;
         emit AffiliatePercentChanged(percent);
     }
 
-    function setPartner(address partner, uint8 discount) public onlyOwner {
+    function setPartner(address partner, uint8 discount, uint8 affPercent) public onlyOwner {
         require(discount <= 100, "UserRegistry: Invalid discount");
-        partners[partner] = discount;
+        partners[partner] = Partner(
+            discount,
+            affPercent
+        );
         emit PartnerSet(partner, discount);
     }
 
@@ -122,7 +131,7 @@ contract UserRegistry is Ownable, IUserRegistry
     }
 
     function feeForUser(address user, Security level) public view returns(uint256) {
-        uint256 discount = partners[user];
+        uint8 discount = partners[user].discount;
         return feeWei[level] * (100 - discount) / 100;
     }
 
@@ -141,7 +150,8 @@ contract UserRegistry is Ownable, IUserRegistry
 
         // Process affiliate payment if there's a referrer
         if (referrer != address(0) && referrer != user) {
-            uint256 affiliatePayment = finalFee * affiliatePercent / 100;
+            uint8 ap = partners[user].affiliatePercent > 0 ? partners[user].affiliatePercent : affiliatePercent;
+            uint256 affiliatePayment = finalFee * ap / 100;
             if (affiliatePayment > 0) {
                 referrer.sendValue(affiliatePayment);
                 emit AffiliatePayment(user, referrer, affiliatePayment);
@@ -156,7 +166,7 @@ contract UserRegistry is Ownable, IUserRegistry
 
         // Refund any excess payment
         if (msg.value > finalFee) {
-            payable(msg.sender).sendValue(msg.value - finalFee);
+            payable(user).sendValue(msg.value - finalFee);
         }
     }
 
