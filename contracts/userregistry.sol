@@ -65,6 +65,7 @@ contract UserRegistry is Ownable, IUserRegistry
     mapping(address => address)         public successors;
     mapping(address => address payable) public referrers;
     mapping(address => Partner) public partners;
+    mapping(address => bool) public hasPaidProtections;
     mapping(Security => uint256) public feeWei;
 
     struct Partner
@@ -137,6 +138,14 @@ contract UserRegistry is Ownable, IUserRegistry
 
     function processPayment(address sender, address user, address payable referrer, bool canUseCoupons, Security level) public override payable onlyNFTProtect
     {
+        // Set referrer only if not set yet and not null and user has no paid protections
+        if (referrers[user] == address(0) && referrer != address(0) && !hasPaidProtections[user])
+        {
+            referrers[user] = referrer;
+            emit ReferrerSet(user, referrer);
+        }
+        referrer = referrers[user];
+
         if (canUseCoupons && coupons.balanceOf(user) > 0)
         {
             coupons.burnFrom(user, 1);
@@ -148,13 +157,6 @@ contract UserRegistry is Ownable, IUserRegistry
 
         require(msg.value == finalFee, "UserRegistry: Incorrect payment amount");
 
-        if (referrers[user] == address(0) && referrer != address(0))
-        {
-            referrers[user] = referrer;
-            emit ReferrerSet(user, referrer);
-        }
-        referrer = referrers[user];
-
         // Process affiliate payment if there's a referrer
         if (referrer != address(0)) {
             require(referrer != user, "UserRegistry: invalid referrer");
@@ -165,6 +167,16 @@ contract UserRegistry is Ownable, IUserRegistry
                 emit AffiliatePayment(user, referrer, affiliatePayment);
             }
             finalFee -= affiliatePayment;
+            // Mint a coupon for user only if:
+            // It's a first paid protection and not called by partner
+            if (!hasPaidProtections[user] && (partners[sender].discount == 0)) {
+                coupons.mint(user, 1);
+            }
+        }
+
+        // Set hasPaidProtections
+        if (!hasPaidProtections[user]) {
+            hasPaidProtections[user] = true;
         }
 
         // Transfer the remaining fee to the contract owner
