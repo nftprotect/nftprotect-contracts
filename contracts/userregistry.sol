@@ -85,7 +85,7 @@ contract UserRegistry is Ownable, IUserRegistry
     mapping(uint256 => SuccessorRequest) public requests;
     uint256                              public requestsCounter;
 
-    constructor(address areg, IUserDID did, address nftprotectaddr)
+    constructor(address areg, IUserDID did, address nftprotectaddr, address nftpCoupons)
     {
         emit Deployed();
         nftprotect = nftprotectaddr;
@@ -95,8 +95,7 @@ contract UserRegistry is Ownable, IUserRegistry
         setAffiliatePercent(10);
         setArbitratorRegistry(areg);
         registerDID(did);
-        coupons = new NFTPCoupons(address(this));
-        coupons.transferOwnership(_msgSender());
+        coupons = NFTPCoupons(nftpCoupons);
     }
 
     function setFee(Security level, uint256 fw) public onlyOwner

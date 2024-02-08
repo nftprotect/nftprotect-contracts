@@ -61,6 +61,40 @@ async function configureArbitratorRegistry() {
     return contract
 }
 
+// Coupons
+
+async function configureNFTPCoupons() {
+    if (!networkData["NFTPCoupons"]) {
+        throw Error("NFTPCoupons contract address not found in contracts.json")
+    }
+    if (!networkData["UserRegistry"]) {
+        throw Error("UserRegistry contract address not found in contracts.json");
+    }
+
+    const contract = await hre.viem.getContractAt("NFTPCoupons", networkData["NFTPCoupons"]);
+
+    const uregAddr = networkData["UserRegistry"];
+    // Setting minter
+    const isConfiguredMinter = await contract.read.minters([uregAddr]);
+    if (isConfiguredMinter) {
+        console.log(`Minter already set`);
+    } else {
+        console.log(`Setting Minter...`);
+        const hash = await contract.write.addMinter([uregAddr]);
+        await processTransaction(hash)
+    }
+    // Setting burner
+    const isConfiguredBurner = await contract.read.burners([uregAddr]);
+    if (isConfiguredMinter) {
+        console.log(`Burner already set`);
+    } else {
+        console.log(`Setting Burner...`);
+        const hash = await contract.write.addBurner([uregAddr]);
+        await processTransaction(hash)
+    }
+    return contract
+}
+
 // NFTProtect
   
 async function setNFTProtectUserRegistry() {  
@@ -205,9 +239,12 @@ async function main() {
             const nftProtect = await configureNFTProtectMetaEvidence();
             console.log(`NFTProtect ${nftProtect.address} configured successfully`);
             console.log(`3. UserRegistry:`);
-            await configureUserRegistryFees();
-            console.log(`UserRegistry configured successfully`);
-            console.log('4. Setting metaEvidenceLoader')
+            const userRegistry = await configureUserRegistryFees();
+            console.log(`UserRegistry ${userRegistry.address} configured successfully`);
+            console.log('4. NFTPCoupons:')
+            const coupons = await configureNFTPCoupons();
+            console.log(`NFTPCoupons ${coupons.address} configured successfully`)
+            console.log('5. Setting metaEvidenceLoader')
             await setMetaEvidenceLoader(metaEvidenceLoader);
             console.log('All done!');
         } else {

@@ -28,8 +28,13 @@ async function deployNFTProtect(arbitratorRegistry: GetContractReturnType) {
     return nftProtect;
 }
 
-async function deployUserRegistry(arbitratorRegistry: GetContractReturnType, did: GetContractReturnType, nftProtect: GetContractReturnType) {
-    const userRegistry = await hre.viem.deployContract("UserRegistry", [arbitratorRegistry.address, did.address, nftProtect.address]);
+async function deployUserRegistry(arbitratorRegistry: GetContractReturnType, did: GetContractReturnType, nftProtect: GetContractReturnType, coupons: GetContractReturnType) {
+    const userRegistry = await hre.viem.deployContract("UserRegistry", [arbitratorRegistry.address, did.address, nftProtect.address, coupons.address]);
+    return userRegistry;
+}
+
+async function deployNFTPCoupons() {
+    const userRegistry = await hre.viem.deployContract("NFTPCoupons");
     return userRegistry;
 }
 
@@ -65,8 +70,8 @@ async function main() {
         const arbitratorRegistry = await getOrDeployContract("ArbitratorRegistry", deployArbitratorRegistry);
         const did = await getOrDeployContract("UserDIDDummyAllowAll", deployDID);
         const nftProtect = await getOrDeployContract("NFTProtect", () => deployNFTProtect(arbitratorRegistry));
-        const userRegistry = await getOrDeployContract("UserRegistry", () => deployUserRegistry(arbitratorRegistry, did, nftProtect));
-        await getCouponsAddress(userRegistry)
+        const coupons = await getOrDeployContract("NFTPCoupons", () => deployNFTPCoupons());
+        const userRegistry = await getOrDeployContract("UserRegistry", () => deployUserRegistry(arbitratorRegistry, did, nftProtect, coupons));
         const protectHelper = await getOrDeployContract("MultipleProtectHelper", () => deployMultipleProtectHelper(nftProtect));
     } catch (error) {
         console.error(error);

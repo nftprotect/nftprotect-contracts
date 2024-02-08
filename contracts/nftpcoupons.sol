@@ -29,14 +29,18 @@ contract NFTPCoupons is Ownable, ERC20
 {
     event Deployed();
     event TransferrableSet(bool state);
+    event MinterAdded(address indexed minter);
+    event MinterRemoved(address indexed minter);
+    event BurnerAdded(address indexed burner);
+    event BurnerRemoved(address indexed burner);
     
     bool    public transferrable;
-    address public nftprotect;
+    mapping(address => bool) public minters;
+    mapping(address => bool) public burners;
 
-    constructor(address nftp) ERC20("NFT Protect Coupons", "NFTPC")
+    constructor() ERC20("NFT Protect Coupons", "NFTPC")
     {
         emit Deployed();
-        nftprotect = nftp;
         setTransferrable(true);
     }
 
@@ -51,15 +55,62 @@ contract NFTPCoupons is Ownable, ERC20
         emit TransferrableSet(state);        
     }
 
-    function mint(address account, uint256 amount) public onlyOwner
+    function mint(address account, uint256 amount) public
     {
+        require(minters[_msgSender()], "NFTPCoupons: incorrect minter");
         _mint(account, amount);
+    }
+
+    function addMinter(address _minter) public onlyOwner {
+        require(!minters[_minter], "NFTPCoupons: already added");
+        _addMinter(_minter);
+    }
+
+    function removeMinter(address _minter) public onlyOwner {
+        _removeMinter(_minter);
+    }
+
+    function addBurner(address _burner) public onlyOwner {
+        require(!burners[_burner], "NFTPCoupons: already added");
+        _addBurner(_burner);
+    }
+
+    function removeBurner(address _burner) public onlyOwner {
+        _removeBurner(_burner);
     }
 
     function burnFrom(address account, uint256 amount) public
     {
-        require(_msgSender() == nftprotect, "NFTPCoupons: forbidden call");
+        require(burners[_msgSender()], "NFTPCoupons: forbidden call");
         _burn(account, amount);
+    }
+
+    function _addMinter(address _minter) internal {
+        require(_minter != address(0), "NFTPCoupons: incorrect address");
+        if (!minters[_minter]) {
+            minters[_minter] = true;
+            emit MinterAdded(_minter);
+        }
+    }
+
+    function _removeMinter(address _minter) internal {
+        require(minters[_minter], "NFTPCoupons: not a minter");
+        delete minters[_minter];
+        emit MinterRemoved(_minter);
+    }
+
+    function _addBurner(address _burner) internal {
+        require(_burner != address(0), "NFTPCoupons: incorrect address");
+        if (!burners[_burner]) {
+            burners[_burner] = true;
+            emit BurnerAdded(_burner);
+        }
+    }
+
+    function _removeBurner(address _burner) internal {
+        require(burners[_burner], "NFTPCoupons: not a minter");
+        delete burners[_burner];
+        emit BurnerRemoved(_burner);
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 /*amount*/) internal view override
