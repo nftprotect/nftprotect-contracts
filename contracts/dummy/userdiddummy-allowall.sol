@@ -32,13 +32,13 @@ contract UserDIDDummyAllowAll is Ownable, IUserDID
         return "dummyAllowAll";
     }
 
-    function isIdentified(address user) public pure override returns(bool)
+    function isIdentified(address /* user */) public pure override returns(bool)
     {
-        return (user != 0x0000000000000000000000000000000000000000) ? true : true;
+        return true;
     }
 
-    function scores(address user) public pure override returns(uint256)
+    function scores(address /* user */) public pure override returns(uint256)
     {
-        return (user != 0x0000000000000000000000000000000000000000) ? 100 : 100;
+        return 10;
     }
 }
