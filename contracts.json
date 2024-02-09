@@ -1,18 +1,10 @@
 {
   "sepolia": {
-    "UserDIDDummyAllowAll": "0xc29da1a7998414374c05664fedc90ecbefbe5b2d",
-    "ArbitratorRegistry": "0x423f42f53f67356e7bc9093410303c68c8478fe7",
-    "NFTProtect": "0x9e652f34a8063de3627574da29c7e9baf5bb8a7d",
-    "UserRegistry": "0xc3dc0e74c92043a2712ce22f385f7b3d390bb695",
-    "NFTPCoupons": "0x142724c5bFcd293C9eFcD27Ee306Bb3Cc8bF15CD",
-    "MultipleProtectHelper": "0xb8debb6f543e502d7d2ddccadfee00cb86629447"
-  },
-  "goerli": {
-    "UserDIDDummyAllowAll": "0x53FeB2b6C816a88aB192a94113d03c5E17EB1fF2",
-    "ArbitratorRegistry": "0x094c049f25d6ea178b3262887d37ad9da36b2355",
-    "NFTProtect": "0x8732b75a23fefab3be8825ae87dffcb38760121f",
-    "UserRegistry": "0x68deab39fb68a7c24d67d16b1f133809c41c008f",
-    "NFTPCoupons": "0x6a204dDA156dafA6198A51241B21340627747402",
-    "MultipleProtectHelper": "0xa84bc45959156e937590098c00334c632e8fe398"
+    "ArbitratorRegistry": "0xa8d82ab740b0ba1a1b5784b86ecdc41d53e4ff15",
+    "UserDIDDummyAllowAll": "0xeb18ef1022810079afbe8f8b6548b3bfd5a7cc2b",
+    "NFTProtect": "0xe7807e973f42aea32da71c15a6441760f675d9cc",
+    "NFTPCoupons": "0x8f1cb013426f591220c51c516ac185a21405afa8",
+    "UserRegistry": "0x727718859965b1c88c79491721d9b861654f6a73",
+    "MultipleProtectHelper": "0xf650a5911c5e527bb8bb2a31d5a23cf9865b17d4"
   }
 }
