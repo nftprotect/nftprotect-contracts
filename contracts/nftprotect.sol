@@ -261,7 +261,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             user,
             referrer,
             level == IUserRegistry.Security.Basic,
-            level
+            level,
+            IUserRegistry.FeeType.Entry
         );
         _mint(user, ++tokensCounter);
         tokens[tokensCounter] = Original(std, contr, tokenId, amount, user, level);
@@ -300,12 +301,14 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         {
             require(dst != address(0) && dst != _msgSender(), "bad dst");
             requestsCounter++;
-            IArbitrableProxy arbitrableProxy;
-            bytes memory extraData;
-            (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
-            uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences[MetaEvidenceType.burn], numberOfRulingOptions);
-            uint256 disputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
-            arbitrableProxy.submitEvidence(disputeId, evidence);
+            (uint256 disputeId, uint256 externalDisputeId) = _processPaymentAndCreateDispute(
+                _msgSender(),
+                IUserRegistry.FeeType.OpenCase,
+                IUserRegistry.Security.Ultra,
+                arbitratorId,
+                MetaEvidenceType.burn,
+                evidence
+            );
             requests[requestsCounter] =
                 Request(
                     ReqType.Burn,
@@ -357,6 +360,47 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         return false;
     }
 
+    /**
+     * @dev Internal function to process payment and create a dispute.
+     * This function is used to avoid code duplication when both actions are always performed together.
+     * @param user The user on whose behalf the payment is processed.
+     * @param feeType The type of fee to be processed.
+     * @param level The security level for the payment processing.
+     * @param arbitratorId The ID of the arbitrator to create the dispute with.
+     * @param metaEvidenceType The type of meta evidence to be used for the dispute.
+     * @param evidence The evidence to be submitted for the dispute.
+     * @return localDisputeId The local ID of the created dispute.
+     * @return externalDisputeId The external ID of the created dispute as assigned by the arbitrable proxy.
+     */
+    function _processPaymentAndCreateDispute(
+        address user,
+        IUserRegistry.FeeType feeType,
+        IUserRegistry.Security level,
+        uint256 arbitratorId,
+        MetaEvidenceType metaEvidenceType,
+        string memory evidence
+    ) internal returns (uint256 localDisputeId, uint256 externalDisputeId) {
+        IArbitrableProxy arbitrableProxy;
+        bytes memory extraData;
+        (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
+        uint256 finalFee = userRegistry.feeForUser(user, level, feeType);
+        if (finalFee > 0) {
+            require(msg.value >= finalFee, 'incorrect fee');
+            userRegistry.processPayment{value: finalFee}(
+                user,
+                user,
+                payable(address(0)), // Referrer is already set in the respective functions
+                level == IUserRegistry.Security.Basic,
+                level,
+                feeType
+            );
+        }
+        externalDisputeId = arbitrableProxy.createDispute{value: msg.value - finalFee}(extraData, metaEvidences[metaEvidenceType], numberOfRulingOptions);
+        localDisputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
+        arbitrableProxy.submitEvidence(localDisputeId, evidence);
+        return (localDisputeId, externalDisputeId);
+    }
+
     /** @dev Transfer ownerhip for `tokenId` to the owner of protected token. Must
      *  be called by the current owner of `tokenId`.
      */
@@ -377,12 +421,14 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         else
         {
             requestsCounter++;
-            IArbitrableProxy arbitrableProxy;
-            bytes memory extraData;
-            (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
-            uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences[MetaEvidenceType.adjustOwnership], numberOfRulingOptions);
-            uint256 disputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
-            arbitrableProxy.submitEvidence(disputeId, evidence);
+            (uint256 disputeId, uint256 externalDisputeId) = _processPaymentAndCreateDispute(
+                _msgSender(),
+                IUserRegistry.FeeType.OpenCase,
+                IUserRegistry.Security.Ultra,
+                arbitratorId,
+                MetaEvidenceType.adjustOwnership,
+                evidence
+            );
             requests[requestsCounter] =
                 Request(
                     ReqType.OwnershipAdjustment,
@@ -460,12 +506,14 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             }
             else
             {
-                IArbitrableProxy arbitrableProxy;
-                bytes memory extraData;
-                (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(request.arbitratorId);
-                request.externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences[request.metaevidence], numberOfRulingOptions);
-                request.localDisputeId = arbitrableProxy.externalIDtoLocalID(request.externalDisputeId);
-                arbitrableProxy.submitEvidence(request.localDisputeId, evidence);
+                (request.externalDisputeId, request.localDisputeId) = _processPaymentAndCreateDispute(
+                    _msgSender(),
+                    IUserRegistry.FeeType.OpenCase,
+                    IUserRegistry.Security.Ultra,
+                    request.arbitratorId,
+                    request.metaevidence,
+                    evidence
+                );
                 request.status = Status.Disputed;
                 disputeToRequest[request.localDisputeId] = requestId;
                 emit OwnershipAdjustmentArbitrateAsked(requestId, request.newowner, request.tokenId);
@@ -490,13 +538,15 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(request.status == Status.Initial || request.status == Status.Rejected, "wrong status");
         require(request.status == Status.Rejected || request.timeout <= block.timestamp, "wait for answer");
         require(_isApprovedOrOwner(_msgSender(), request.tokenId), "not owner");
-        IArbitrableProxy arbitrableProxy;
-        bytes memory extraData;
-        (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(request.arbitratorId);
-        request.externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences[MetaEvidenceType.askOwnershipAdjustmentArbitrate], numberOfRulingOptions);
-        request.localDisputeId = arbitrableProxy.externalIDtoLocalID(request.externalDisputeId);
+        (request.localDisputeId, request.externalDisputeId ) = _processPaymentAndCreateDispute(
+            _msgSender(),
+            IUserRegistry.FeeType.OpenCase,
+            IUserRegistry.Security.Ultra,
+            request.arbitratorId,
+            MetaEvidenceType.askOwnershipAdjustmentArbitrate,
+            evidence
+        );
         request.metaevidence = MetaEvidenceType.askOwnershipAdjustmentArbitrate;
-        arbitrableProxy.submitEvidence(request.localDisputeId, evidence);
         request.status = Status.Disputed;
         disputeToRequest[request.localDisputeId] = requestId;
         emit OwnershipAdjustmentArbitrateAsked(requestId, request.newowner, request.tokenId);
@@ -520,13 +570,16 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             "wrong MetaEvidence"
         );
         requestsCounter++;
-        IArbitrableProxy arbitrableProxy;
-        bytes memory extraData;
-        (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
-        uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidences[metaEvidenceType], numberOfRulingOptions);
-        uint256 disputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
-        arbitrableProxy.submitEvidence(disputeId, evidence);
-        if (tokens[tokenId].level == IUserRegistry.Security.Ultra)
+        Original memory token = tokens[tokenId];
+        (uint256 disputeId, uint256 externalDisputeId) = _processPaymentAndCreateDispute(
+            _msgSender(),
+            IUserRegistry.FeeType.OpenCase,
+            IUserRegistry.Security.Ultra,
+            arbitratorId,
+            metaEvidenceType,
+            evidence
+        );
+        if (token.level == IUserRegistry.Security.Ultra)
         {
             require(dst != address(0) && dst != _msgSender(), "bad dst");
         }

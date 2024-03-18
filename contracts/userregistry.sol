@@ -38,7 +38,7 @@ contract UserRegistry is Ownable, IUserRegistry
     event ArbitratorRegistryChanged(address areg);
     event AffiliatePercentChanged(uint8 percent);
     event AffiliatePayment(address indexed from, address indexed to, uint256 amountWei);
-    event FeeChanged(Security indexed level, uint256 feeWei);
+    event FeeChanged(Security indexed level, FeeType indexed feeType, uint256 feeWei);
     event ReferrerSet(address indexed user, address indexed referrer);
     event PartnerSet(address indexed partner, uint8 discount, uint8 affiliatePercent);
     event DIDRegistered(address indexed did, string provider);
@@ -66,7 +66,7 @@ contract UserRegistry is Ownable, IUserRegistry
     mapping(address => address payable) public referrers;
     mapping(address => Partner) public partners;
     mapping(address => bool) public hasPaidProtections;
-    mapping(Security => uint256) public feeWei;
+    uint256[2][2] public fees; // [Security][FeeType]
 
     struct Partner
     {
@@ -90,18 +90,20 @@ contract UserRegistry is Ownable, IUserRegistry
         emit Deployed();
         nftprotect = nftprotectaddr;
         metaEvidenceLoader = _msgSender();
-        setFee(Security.Basic, 0);
-        setFee(Security.Ultra, 0);
-        setAffiliatePercent(10);
+        setFee(Security.Basic, FeeType.Entry, 0);
+        setFee(Security.Basic, FeeType.OpenCase, 0);
+        setFee(Security.Ultra, FeeType.Entry, 0);
+        setFee(Security.Ultra, FeeType.OpenCase, 0);
+        setAffiliatePercent(0);
         setArbitratorRegistry(areg);
         registerDID(did);
         coupons = NFTPCoupons(nftpCoupons);
     }
 
-    function setFee(Security level, uint256 fw) public onlyOwner
+    function setFee(Security level, FeeType feeType, uint256 fw) public onlyOwner
     {
-        feeWei[level] = fw;
-        emit FeeChanged(level, fw);
+        fees[uint256(level)][uint256(feeType)] = fw;
+        emit FeeChanged(level, feeType, fw);
     }
     
     function setArbitratorRegistry(address areg) public onlyOwner
@@ -130,12 +132,16 @@ contract UserRegistry is Ownable, IUserRegistry
         emit PartnerSet(partner, 0, 0);
     }
 
-    function feeForUser(address user, Security level) public view returns(uint256) {
+    function feeForUser(address user, Security level, FeeType feeType) public view returns(uint256) {
+        uint256 fee = fees[uint256(level)][uint256(feeType)];
+        if (fee == 0) {
+            return 0;
+        }
         uint8 discount = partners[user].discount;
-        return feeWei[level] * (100 - discount) / 100;
+        return fee * (100 - discount) / 100;
     }
 
-    function processPayment(address sender, address user, address payable referrer, bool canUseCoupons, Security level) public override payable onlyNFTProtect
+    function processPayment(address sender, address user, address payable referrer, bool canUseCoupons, Security level, FeeType feeType) public override payable onlyNFTProtect
     {
         // Set referrer only if not set yet and not null and user has no paid protections
         if (referrers[user] == address(0) && referrer != address(0) && !hasPaidProtections[user])
@@ -151,10 +157,15 @@ contract UserRegistry is Ownable, IUserRegistry
             return;
         }
 
-        // Apply discount for registered partners
-        uint256 finalFee = feeForUser(sender, level);
+        // Get fee with partner's discount applied
+        uint256 finalFee = feeForUser(sender, level, feeType);
 
         require(msg.value == finalFee, "UserRegistry: Incorrect payment amount");
+
+        // If there's no fee, then just exit
+        if (finalFee == 0) {
+            return;
+        }
 
         // Process affiliate payment if there's a referrer
         if (referrer != address(0)) {
@@ -252,6 +263,7 @@ contract UserRegistry is Ownable, IUserRegistry
 
     function successorRequest(address user, uint256 arbitratorId, string memory evidence) public payable returns(uint256)
     {
+        // TODO: process payment
         require(isRegistered(user), "UserRegistry: Unregistered user");
         IArbitrableProxy arbitrableProxy;
         bytes memory extraData;
