@@ -137,8 +137,13 @@ contract UserRegistry is Ownable, IUserRegistry
         if (fee == 0) {
             return 0;
         }
-        uint8 discount = partners[user].discount;
-        return fee * (100 - discount) / 100;
+        // Discount only on entry
+        if (feeType == FeeType.Entry) {
+            uint8 discount = partners[user].discount;
+            return fee * (100 - discount) / 100;
+        } else {
+            return fee;
+        }
     }
 
     function processPayment(address sender, address user, address payable referrer, bool canUseCoupons, Security level, FeeType feeType) public override payable onlyNFTProtect
