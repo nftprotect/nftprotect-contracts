@@ -48,6 +48,7 @@ interface IUserRegistry
     enum FeeType
     {
         Entry,
-        OpenCase
+        OpenCase,
+        FetchRuling
     }
 }

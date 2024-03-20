@@ -611,7 +611,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      * @dev Fetch the ruling that is stored in the arbitrable proxy.
      * value is: 0 - RefusedToArbitrate, 1 - Accepted, 2 - Rejected.
      */
-    function fetchRuling(uint256 requestId) external
+    function fetchRuling(uint256 requestId) external payable
     {
         require(requestId > 0, "unknown requestId");
         Request storage request = requests[requestId];
@@ -622,6 +622,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(isRuled, "ruling pending");
         bool accept = ruling == 1;
         request.status = accept ? Status.Accepted : Status.Rejected;
+        // Может оплатить любой, но в размере за пользователя?? какого??
+        Original storage token = tokens[request.tokenId];
+        uint256 finalFee = userRegistry.feeForUser(_msgSender(), token.level, IUserRegistry.FeeType.FetchRuling);
+        require(msg.value == finalFee, "Incorrect message value");
         if (request.reqtype == ReqType.OwnershipAdjustment)
         {
             emit OwnershipAdjustmentAnswered(requestId, accept);
