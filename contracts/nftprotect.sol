@@ -385,12 +385,12 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
         uint256 finalFee = userRegistry.feeForUser(user, level, feeType);
         if (finalFee > 0) {
-            require(msg.value >= finalFee, 'incorrect fee');
+            require(msg.value >= finalFee, 'incorrect fee'); // Maybe ask Kleros?
             userRegistry.processPayment{value: finalFee}(
                 user,
                 user,
                 payable(address(0)), // Referrer is already set in the respective functions
-                level == IUserRegistry.Security.Basic,
+                false,
                 level,
                 feeType
             );
@@ -624,8 +624,14 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         request.status = accept ? Status.Accepted : Status.Rejected;
         // Может оплатить любой, но в размере за пользователя?? какого??
         Original storage token = tokens[request.tokenId];
-        uint256 finalFee = userRegistry.feeForUser(_msgSender(), token.level, IUserRegistry.FeeType.FetchRuling);
-        require(msg.value == finalFee, "Incorrect message value");
+        userRegistry.processPayment{value: msg.value}(
+            _msgSender(),
+            _msgSender(),
+            payable(address(0)), // Referrer is already set in the respective functions
+            false,
+            token.level,
+            IUserRegistry.FeeType.FetchRuling
+        );
         if (request.reqtype == ReqType.OwnershipAdjustment)
         {
             emit OwnershipAdjustmentAnswered(requestId, accept);
