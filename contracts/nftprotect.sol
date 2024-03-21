@@ -130,7 +130,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     {
         emit Deployed();
         setArbitratorRegistry(areg);
-        setBurnOnAction(true);
+        setBurnOnAction(false);
         setScoreThreshold(50);
         setBase("");
         setMetaEvidenceLoader(_msgSender());
