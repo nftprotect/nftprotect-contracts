@@ -31,6 +31,22 @@ describe("SignatureVerifier", function () {
     let messageText: string;
     let domain:any;
 
+    const signMessage = async (overrides = {}) => {
+        return walletClient.signTypedData({
+            account,
+            domain,
+            types,
+            primaryType: "Message",
+            message: {
+                tokenId,
+                newOwner,
+                nonce,
+                messageText,
+                ...overrides
+            }
+        });
+    };
+
     beforeEach(async function () {
 
         // Load the contract instance using the deployment function
@@ -50,19 +66,7 @@ describe("SignatureVerifier", function () {
         account = walletClient.account?.address || nullAddress
         expect(account === nullAddress).to.be.false;
 
-        // // Create a message hash
-        // message = await signatureVerifier.read.getMessageHash([
-        //     tokenId,
-        //     newOwner,
-        //     nonce
-        // ]);
         messageText = await signatureVerifier.read.getMessageText();
-        console.log("Message Text:", messageText);
-        console.log("Account:", account);
-
-        console.log("Domain:", domain);
-
-
     });
 
     describe("getMessageHash", function () {
@@ -87,58 +91,107 @@ describe("SignatureVerifier", function () {
             expect(actualMessageHash).to.equal(expectedTypedMessageHash, "The hash returned by getMessageHash does not match the expected typed message hash.");
         });
     });
+    
+    describe("Verify", function () {
+        it("should verify a valid signature", async function () {
+            // Sign the message by the owner
+            const signature = await walletClient.signTypedData({
+                account,
+                domain,
+                types,
+                primaryType: "Message",
+                message: {
+                    tokenId,
+                    newOwner,
+                    nonce,
+                    messageText,
+                }
+            });    // Get the hash of the signed message
 
-    it("should verify a valid signature", async function () {
-        // Sign the message by the owner
-        const signature = await walletClient.signTypedData({
-            account,
-            domain,
-            types,
-            primaryType: "Message",
-            message: {
-                tokenId,
-                newOwner,
-                nonce,
-                messageText,
-            }
-        });    // Get the hash of the signed message
+            // Verify the signature
+            expect(
+                await signatureVerifier.read.verify([
+                    tokenId, 
+                    account, 
+                    newOwner, 
+                    nonce, 
+                    signature
+                ])
+            ).to.be.true;
+        });
 
-        // Verify the signature
-        expect(
-            await signatureVerifier.read.verify([
-                tokenId, 
-                account, 
-                newOwner, 
-                nonce, 
-                signature
-            ])
-        ).to.be.true;
-    });
+        it("should reject invalid signer", async function () {
+            // Create an invalid signature
+            const signature = await signMessage();
 
-    it("should reject an invalid signature", async function () {
-        // Create an invalid signature
-        const signature = await walletClient.signTypedData({
-            account,
-            domain,
-            types,
-            primaryType: "Message",
-            message: {
-                tokenId,
-                newOwner,
-                nonce,
-                messageText,
-            }
-        });    // Get the hash of the signed message
+            // Verify the signature
+            expect(
+                await signatureVerifier.read.verify([
+                    tokenId, 
+                    newOwner, // it's wrong
+                    newOwner, 
+                    nonce, 
+                    signature
+                ])
+            ).to.be.false;
+        });
 
-        // Verify the signature
-        expect(
-            await signatureVerifier.read.verify([
-                tokenId, 
-                newOwner, // it's wrong
-                newOwner, 
-                nonce, 
-                signature
-            ])
-        ).to.be.false;
+        it("should reject a signature with an incorrect tokenId", async function () {
+            // Sign the message by the owner with the correct tokenId
+            const correctSignature = await signMessage();
+    
+            // Incorrect tokenId for testing
+            const incorrectTokenId = tokenId + 1;
+    
+            // Verify the signature with incorrect tokenId
+            expect(
+                await signatureVerifier.read.verify([
+                    incorrectTokenId, 
+                    account, 
+                    newOwner, 
+                    nonce, 
+                    correctSignature
+                ])
+            ).to.be.false;
+        });
+    
+        it("should reject a signature with an incorrect newOwner", async function () {
+            // Sign the message by the owner with the correct newOwner
+            const correctSignature = await signMessage();
+    
+            // Incorrect newOwner for testing
+            const incorrectNewOwner = "0x1111111111111111111111111111111111111111";
+    
+            // Verify the signature with incorrect newOwner
+            expect(
+                await signatureVerifier.read.verify([
+                    tokenId, 
+                    account, 
+                    incorrectNewOwner, 
+                    nonce, 
+                    correctSignature
+                ])
+            ).to.be.false;
+        });
+    
+        it("should reject a signature with an incorrect nonce", async function () {
+            // Sign the message by the owner with the correct nonce
+            const correctSignature = await signMessage();
+    
+            // Incorrect nonce for testing
+            const incorrectNonce = nonce + 1;
+    
+            // Verify the signature with incorrect nonce
+            expect(
+                await signatureVerifier.read.verify([
+                    tokenId, 
+                    account, 
+                    newOwner, 
+                    incorrectNonce, 
+                    correctSignature
+                ])
+            ).to.be.false;
+        });
+
     });
 });
