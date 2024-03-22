@@ -27,24 +27,51 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /// @notice This contract provides functions to verify off-chain signatures for NFT transactions.
 /// @dev This contract uses EIP-712 standard for typed structured data hashing and signing.
 contract SignatureVerifier is Ownable {
-    // Warning message template used in the message hash
-    string constant MESSAGE_TEXT = "WARNING! READ CAREFULLY!\n\
-By signing this message, you agree to withdraw your original NFT from the NFT Protect protocol. Access to it will no longer be recoverable through NFT Protect!\n";
+    // EIP-712 Domain Separator
+    bytes32 public DOMAIN_SEPARATOR;
 
-    /// @notice Calculates the hash of the message that needs to be signed by the user.
-    /// @dev The hash is calculated using keccak256 over the concatenation of a constant message text and the transaction details.
+    // EIP-712 Message TypeHash
+    bytes32 public constant MESSAGE_TYPEHASH = keccak256(
+        "Message(uint256 tokenId,address newOwner,uint256 nonce,string messageText)"
+    );
+
+    string constant MESSAGE_TEXT = "WARNING! READ CAREFULLY!\nBy signing this message, you agree to withdraw your original NFT from the NFT Protect protocol. Access to it will no longer be recoverable through NFT Protect!\n";
+
+    constructor() {
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("NFTProtect"),
+                keccak256("1"),
+                block.chainid,
+                address(this)
+            )
+        );
+    }
+
+    /// @notice Calculates the EIP-712 hash of the message that needs to be signed by the user.
     /// @param tokenId The ID of the token being transferred.
-    /// @param currentOwner The current owner's address of the token.
     /// @param newOwner The new owner's address to which the token will be transferred.
     /// @param nonce A nonce to ensure the hash is unique for each transaction.
     /// @return The calculated message hash.
     function getMessageHash(
         uint256 tokenId,
-        address currentOwner,
         address newOwner,
         uint256 nonce
-    ) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(MESSAGE_TEXT, tokenId, currentOwner, newOwner, nonce));
+    ) public view returns (bytes32) {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                MESSAGE_TYPEHASH,
+                tokenId,
+                newOwner,
+                nonce,
+                keccak256(bytes(MESSAGE_TEXT))
+            )
+        );
+
+        return keccak256(
+            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
+        );
     }
 
     /// @notice Returns the warning message template used in the message hash.
@@ -53,18 +80,7 @@ By signing this message, you agree to withdraw your original NFT from the NFT Pr
         return MESSAGE_TEXT;
     }
 
-    /// @notice Wraps the message hash with the standard Ethereum Signed Message prefix.
-    /// @dev This is used to prevent signature forgery on arbitrary messages.
-    /// @param _messageHash The hash of the message that was signed.
-    /// @return The hash of the message prefixed with the Ethereum Signed Message string.
-    function getEthSignedMessageHash(bytes32 _messageHash) public pure returns (bytes32) {
-        return keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", _messageHash)
-        );
-    }
-
     /// @notice Verifies if a signature is valid and was signed by the current owner of the token.
-    /// @dev It recovers the signer from the signature using the `ecrecover` function and compares it to the `currentOwner`.
     /// @param tokenId The ID of the token being transferred.
     /// @param currentOwner The current owner's address of the token.
     /// @param newOwner The new owner's address to which the token will be transferred.
@@ -77,11 +93,9 @@ By signing this message, you agree to withdraw your original NFT from the NFT Pr
         address newOwner,
         uint256 nonce,
         bytes memory signature
-    ) public pure returns (bool) {
-        bytes32 messageHash = getMessageHash(tokenId, currentOwner, newOwner, nonce);
-        bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
-
-        address recovered = recoverSigner(ethSignedMessageHash, signature);
+    ) public view returns (bool) {
+        bytes32 messageHash = getMessageHash(tokenId, newOwner, nonce);
+        address recovered = recoverSigner(messageHash, signature);
         return recovered == currentOwner;
     }
 

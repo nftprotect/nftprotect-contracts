@@ -72,7 +72,7 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
         address user,
         address payable referrer) public payable
     {
-        uint256 feeWei = userRegistry.feeForUser(msg.sender, level);
+        uint256 feeWei = userRegistry.feeForUser(msg.sender, level, IUserRegistry.FeeType.Entry);
         require(msg.value == feeWei*tokensId.length, "MultipleProtectHelper: invalid value");
         allow = 1;
         for(uint256 i = 0; i < tokensId.length; i++)
@@ -104,7 +104,7 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
         {
             user = _msgSender();
         } 
-        uint256 feeWei = userRegistry.feeForUser(msg.sender, level);
+        uint256 feeWei = userRegistry.feeForUser(msg.sender, level, IUserRegistry.FeeType.Entry);
         require(msg.value == feeWei*tokensId.length, "MultipleProtectHelper: invalid value");
         require(tokensId.length == amounts.length, "MultipleProtectHelper: wrong inputs");
         allow = 1;
