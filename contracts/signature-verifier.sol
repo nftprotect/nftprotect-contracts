@@ -36,6 +36,7 @@ contract SignatureVerifier is Ownable {
     );
 
     string constant MESSAGE_TEXT = "WARNING! READ CAREFULLY!\nBy signing this message, you agree to withdraw your original NFT from the NFT Protect protocol. Access to it will no longer be recoverable through NFT Protect!\n";
+    bytes32 public constant MESSAGE_TEXT_HASH = keccak256(bytes(MESSAGE_TEXT));
 
     constructor() {
         DOMAIN_SEPARATOR = keccak256(
@@ -65,7 +66,7 @@ contract SignatureVerifier is Ownable {
                 tokenId,
                 newOwner,
                 nonce,
-                keccak256(bytes(MESSAGE_TEXT))
+                MESSAGE_TEXT_HASH
             )
         );
 
