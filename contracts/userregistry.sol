@@ -27,8 +27,7 @@ import "./iuserregistry.sol";
 import "./arbitratorregistry.sol";
 import "./iuserdid.sol";
 import "./iarbitrableproxy.sol";
-import "./nftpcoupons.sol";
-
+import "./idiscounter.sol";
 
 contract UserRegistry is Ownable, IUserRegistry
 {
@@ -41,6 +40,7 @@ contract UserRegistry is Ownable, IUserRegistry
     event FeeChanged(Security indexed level, FeeType indexed feeType, uint256 feeWei);
     event ReferrerSet(address indexed user, address indexed referrer);
     event PartnerSet(address indexed partner, uint8 discount, uint8 affiliatePercent);
+    event CouponsSet(address indexed newAddress);
     event DIDRegistered(address indexed did, string provider);
     event DIDUnregistered(address indexed did);
     event SuccessorRequested(uint256 indexed requestId, address indexed user, address indexed successor);
@@ -55,7 +55,7 @@ contract UserRegistry is Ownable, IUserRegistry
 
     string             public   metaEvidenceURI;
     address            public   nftprotect;
-    NFTPCoupons        public   coupons;
+    IDiscounter        public   coupons;
     address            public   metaEvidenceLoader;
     ArbitratorRegistry public   arbitratorRegistry;
     IUserDID[]         public   dids;
@@ -85,7 +85,7 @@ contract UserRegistry is Ownable, IUserRegistry
     mapping(uint256 => SuccessorRequest) public requests;
     uint256                              public requestsCounter;
 
-    constructor(address areg, IUserDID did, address nftprotectaddr, address nftpCoupons)
+    constructor(address areg, IUserDID did, address nftprotectaddr)
     {
         emit Deployed();
         nftprotect = nftprotectaddr;
@@ -97,13 +97,29 @@ contract UserRegistry is Ownable, IUserRegistry
         setAffiliatePercent(0);
         setArbitratorRegistry(areg);
         registerDID(did);
-        coupons = NFTPCoupons(nftpCoupons);
     }
 
     function setFee(Security level, FeeType feeType, uint256 fw) public onlyOwner
     {
         fees[uint256(level)][uint256(feeType)] = fw;
         emit FeeChanged(level, feeType, fw);
+    }
+
+    /**
+     * @dev Sets the address of the IDiscounter contract to be used for coupons.
+     * This allows the UserRegistry to interact with the coupons system, enabling
+     * discounts for users based on certain conditions.
+     *
+     * Requirements:
+     * - The caller must be the owner of the contract.
+     *
+     * Emits an `CouponsAddressChanged` event with the new address.
+     *
+     * @param couponsAddr The address of the IDiscounter contract.
+     */
+    function setCoupons(address couponsAddr) public onlyOwner {
+        coupons = IDiscounter(couponsAddr);
+        emit CouponsSet(couponsAddr);
     }
     
     function setArbitratorRegistry(address areg) public onlyOwner
@@ -156,10 +172,12 @@ contract UserRegistry is Ownable, IUserRegistry
         }
         referrer = referrers[user];
 
-        if (level == Security.Basic && feeType == FeeType.Entry && coupons.balanceOf(user) > 0)
-        {
-            coupons.burnFrom(user, 1);
-            return;
+        if (address(coupons) != address(0)) {
+            if (level == Security.Basic && feeType == FeeType.Entry && coupons.hasDiscount(user))
+            {
+                coupons.useDiscount(user);
+                return;
+            }
         }
 
         // Get fee with partner's discount applied
@@ -184,11 +202,6 @@ contract UserRegistry is Ownable, IUserRegistry
                     emit AffiliatePayment(user, referrer, affiliatePayment);
                 }
                 finalFee -= affiliatePayment;
-                // Mint a coupon for user only if:
-                // It's a first paid protection and not called by partner
-                if (!hasPaidProtections[user] && (partners[sender].discount == 0)) {
-                    coupons.mint(user, 1);
-                }
             }
 
             // Set hasPaidProtections
