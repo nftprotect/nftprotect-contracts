@@ -2,8 +2,7 @@ import { readFileSync, existsSync } from 'fs';
 import hre from "hardhat";
 import { PublicClient } from "viem";
 import { 
-    basicFeeWei, 
-    ultraFeeWei,
+    fees, 
     arbitrators,
     metaEvidences,
     metaEvidenceLoader,
@@ -58,40 +57,6 @@ async function configureArbitratorRegistry() {
 
     const hash = await contract.write.addArbitrator([arbitratorData.name, arbitratorData.address, arbitratorData.extraData]);
     await processTransaction(hash)
-    return contract
-}
-
-// Coupons
-
-async function configureNFTPCoupons() {
-    if (!networkData["NFTPCoupons"]) {
-        throw Error("NFTPCoupons contract address not found in contracts.json")
-    }
-    if (!networkData["UserRegistry"]) {
-        throw Error("UserRegistry contract address not found in contracts.json");
-    }
-
-    const contract = await hre.viem.getContractAt("NFTPCoupons", networkData["NFTPCoupons"]);
-
-    const uregAddr = networkData["UserRegistry"];
-    // Setting minter
-    const isConfiguredMinter = await contract.read.minters([uregAddr]);
-    if (isConfiguredMinter) {
-        console.log(`Minter already set`);
-    } else {
-        console.log(`Setting Minter...`);
-        const hash = await contract.write.addMinter([uregAddr]);
-        await processTransaction(hash)
-    }
-    // Setting burner
-    const isConfiguredBurner = await contract.read.burners([uregAddr]);
-    if (isConfiguredMinter) {
-        console.log(`Burner already set`);
-    } else {
-        console.log(`Setting Burner...`);
-        const hash = await contract.write.addBurner([uregAddr]);
-        await processTransaction(hash)
-    }
     return contract
 }
 
@@ -196,7 +161,6 @@ async function configureNFTProtectMetaEvidence() {
 }
 
 // UserRegistry
-
 async function configureUserRegistryFees() {
     if (!networkData["UserRegistry"]) {
         throw Error("UserRegistry contract address not found in contracts.json");
@@ -204,23 +168,23 @@ async function configureUserRegistryFees() {
 
     const contract = await hre.viem.getContractAt("UserRegistry", networkData["UserRegistry"]);
 
-    const currentBasicFee = await contract.read.feeWei([0]);
-    const currentUltraFee = await contract.read.feeWei([1]);
+    // Fee types as defined in the UserRegistry contract
+    const feeTypes = ['Entry', 'OpenCase'];
 
-    if (currentBasicFee !== basicFeeWei) {
-        console.log(`Setting basicFeeWei to ${basicFeeWei}...`);
-        const hash = await contract.write.setFee([0, basicFeeWei]);
-        await processTransaction(hash)
-    } else {
-        console.log(`BasicFeeWei is already set to ${basicFeeWei}`);
-    }
+    // Loop through each security level and fee type to update fees
+    for (let securityLevel = 0; securityLevel < fees.length; securityLevel++) {
+        for (let feeTypeIndex = 0; feeTypeIndex < fees[securityLevel].length; feeTypeIndex++) {
+            const currentFee = await contract.read.fees([BigInt(securityLevel), BigInt(feeTypeIndex)]);
+            const newFee = fees[securityLevel][feeTypeIndex];
 
-    if (currentUltraFee !== ultraFeeWei) {
-        console.log(`Setting ultraFeeWei to ${ultraFeeWei}...`);
-        const hash = await contract.write.setFee([1, ultraFeeWei]);
-        await processTransaction(hash)
-    } else {
-        console.log(`UltraFeeWei is already set to ${ultraFeeWei}`);
+            if (currentFee !== newFee) {
+                console.log(`Setting ${feeTypes[feeTypeIndex]}FeeWei for security level ${securityLevel} to ${newFee}...`);
+                const hash = await contract.write.setFee([securityLevel, feeTypeIndex, newFee]);
+                await processTransaction(hash);
+            } else {
+                console.log(`${feeTypes[feeTypeIndex]}FeeWei for security level ${securityLevel} is already set to ${newFee}`);
+            }
+        }
     }
 
     return contract;
@@ -235,16 +199,13 @@ async function main() {
             console.log(`ArbitratorRegistry ${arbRegistry.address} configured successfully`);
             console.log(`2. NFTProtect:`);
             await setNFTProtectUserRegistry();
-            await setNFTProtectBaseURI();
+            //await setNFTProtectBaseURI();
             const nftProtect = await configureNFTProtectMetaEvidence();
             console.log(`NFTProtect ${nftProtect.address} configured successfully`);
             console.log(`3. UserRegistry:`);
             const userRegistry = await configureUserRegistryFees();
             console.log(`UserRegistry ${userRegistry.address} configured successfully`);
-            console.log('4. NFTPCoupons:')
-            const coupons = await configureNFTPCoupons();
-            console.log(`NFTPCoupons ${coupons.address} configured successfully`)
-            console.log('5. Setting metaEvidenceLoader')
+            console.log('4. Setting metaEvidenceLoader')
             await setMetaEvidenceLoader(metaEvidenceLoader);
             console.log('All done!');
         } else {

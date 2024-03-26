@@ -67,7 +67,7 @@ contract UserRegistry is Ownable, IUserRegistry
     mapping(address => address payable) public referrers;
     mapping(address => Partner) public partners;
     mapping(address => bool) public hasPaidProtections;
-    uint256[2][2] public fees; // [Security][FeeType]
+    uint256[2][3] public fees; // [Security][FeeType]
 
     struct Partner
     {
