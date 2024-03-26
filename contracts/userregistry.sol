@@ -46,6 +46,7 @@ contract UserRegistry is Ownable, IUserRegistry
     event SuccessorRequested(uint256 indexed requestId, address indexed user, address indexed successor);
     event SuccessorApproved(uint256 indexed requestId);
     event SuccessorRejected(uint256 indexed requestId);
+    event MetaEvidenceSet(string evidence);
 
     modifier onlyNFTProtect()
     {
@@ -302,8 +303,7 @@ contract UserRegistry is Ownable, IUserRegistry
     {
         require(_msgSender() == metaEvidenceLoader, "UserRegistry: forbidden");
         metaEvidenceURI = evidence;
-        // todo since userregistry is no longer IEvidence, you might want to emit an event here.
-        // although `setMetaEvidenceLoader` did not need an event, so maybe no event is needed anymore.
+        emit MetaEvidenceSet(evidence);
     }
 
     function fetchRuling(uint256 requestId) external

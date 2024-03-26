@@ -43,6 +43,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     event BaseChanged(string base);
     event ScoreThresholdChanged(uint256 threshold);
     event MetaEvidenceLoaderChanged(address mel);
+    event MetaEvidenceSet(MetaEvidenceType evidenceType, string evidence);
     event Protected(uint256 indexed assetType, address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount, IUserRegistry.Security level);
     event Unprotected(address indexed dst, uint256 indexed tokenId);
     event BurnArbitrateAsked(uint256 indexed requestId, address dst, uint256 indexed tokenId);
@@ -595,7 +596,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     {
         require(_msgSender() == metaEvidenceLoader, "forbidden");
         metaEvidences[evidenceType] = evidence;
-        // emit event? same considerations as userregistry.sol
+        emit MetaEvidenceSet(evidenceType, evidence);
     }
 
     /**
