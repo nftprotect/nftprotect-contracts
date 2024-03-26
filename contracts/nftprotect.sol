@@ -260,7 +260,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             _msgSender(),
             user,
             referrer,
-            level == IUserRegistry.Security.Basic,
             level,
             IUserRegistry.FeeType.Entry
         );
@@ -303,7 +302,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             requestsCounter++;
             (uint256 disputeId, uint256 externalDisputeId) = _processPaymentAndCreateDispute(
                 _msgSender(),
-                IUserRegistry.FeeType.OpenCase,
                 IUserRegistry.Security.Ultra,
                 arbitratorId,
                 MetaEvidenceType.burn,
@@ -364,7 +362,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      * @dev Internal function to process payment and create a dispute.
      * This function is used to avoid code duplication when both actions are always performed together.
      * @param user The user on whose behalf the payment is processed.
-     * @param feeType The type of fee to be processed.
      * @param level The security level for the payment processing.
      * @param arbitratorId The ID of the arbitrator to create the dispute with.
      * @param metaEvidenceType The type of meta evidence to be used for the dispute.
@@ -374,7 +371,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      */
     function _processPaymentAndCreateDispute(
         address user,
-        IUserRegistry.FeeType feeType,
         IUserRegistry.Security level,
         uint256 arbitratorId,
         MetaEvidenceType metaEvidenceType,
@@ -383,16 +379,15 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         IArbitrableProxy arbitrableProxy;
         bytes memory extraData;
         (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
-        uint256 finalFee = userRegistry.feeForUser(user, level, feeType);
+        uint256 finalFee = userRegistry.feeForUser(user, level, IUserRegistry.FeeType.OpenCase);
         if (finalFee > 0) {
             require(msg.value >= finalFee, 'incorrect fee'); // Maybe ask Kleros?
             userRegistry.processPayment{value: finalFee}(
                 user,
                 user,
                 payable(address(0)), // Referrer is already set in the respective functions
-                false,
                 level,
-                feeType
+                IUserRegistry.FeeType.OpenCase
             );
         }
         externalDisputeId = arbitrableProxy.createDispute{value: msg.value - finalFee}(extraData, metaEvidences[metaEvidenceType], numberOfRulingOptions);
@@ -423,7 +418,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             requestsCounter++;
             (uint256 disputeId, uint256 externalDisputeId) = _processPaymentAndCreateDispute(
                 _msgSender(),
-                IUserRegistry.FeeType.OpenCase,
                 IUserRegistry.Security.Ultra,
                 arbitratorId,
                 MetaEvidenceType.adjustOwnership,
@@ -508,7 +502,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             {
                 (request.externalDisputeId, request.localDisputeId) = _processPaymentAndCreateDispute(
                     _msgSender(),
-                    IUserRegistry.FeeType.OpenCase,
                     IUserRegistry.Security.Ultra,
                     request.arbitratorId,
                     request.metaevidence,
@@ -540,7 +533,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(_isApprovedOrOwner(_msgSender(), request.tokenId), "not owner");
         (request.localDisputeId, request.externalDisputeId ) = _processPaymentAndCreateDispute(
             _msgSender(),
-            IUserRegistry.FeeType.OpenCase,
             IUserRegistry.Security.Ultra,
             request.arbitratorId,
             MetaEvidenceType.askOwnershipAdjustmentArbitrate,
@@ -573,7 +565,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         Original memory token = tokens[tokenId];
         (uint256 disputeId, uint256 externalDisputeId) = _processPaymentAndCreateDispute(
             _msgSender(),
-            IUserRegistry.FeeType.OpenCase,
             IUserRegistry.Security.Ultra,
             arbitratorId,
             metaEvidenceType,
@@ -628,7 +619,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             _msgSender(),
             _msgSender(),
             payable(address(0)), // Referrer is already set in the respective functions
-            false,
             token.level,
             IUserRegistry.FeeType.FetchRuling
         );

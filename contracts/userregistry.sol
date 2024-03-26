@@ -146,7 +146,7 @@ contract UserRegistry is Ownable, IUserRegistry
         }
     }
 
-    function processPayment(address sender, address user, address payable referrer, bool canUseCoupons, Security level, FeeType feeType) public override payable onlyNFTProtect
+    function processPayment(address sender, address user, address payable referrer, Security level, FeeType feeType) public override payable onlyNFTProtect
     {
         // Set referrer only if not set yet and not null and user has no paid protections
         if (referrers[user] == address(0) && referrer != address(0) && !hasPaidProtections[user])
@@ -156,7 +156,7 @@ contract UserRegistry is Ownable, IUserRegistry
         }
         referrer = referrers[user];
 
-        if (canUseCoupons && coupons.balanceOf(user) > 0)
+        if (level == Security.Basic && feeType == FeeType.Entry && coupons.balanceOf(user) > 0)
         {
             coupons.burnFrom(user, 1);
             return;
