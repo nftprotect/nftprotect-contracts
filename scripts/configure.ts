@@ -168,8 +168,9 @@ async function configureUserRegistryFees() {
 
     const contract = await hre.viem.getContractAt("UserRegistry", networkData["UserRegistry"]);
 
-    // Fee types as defined in the UserRegistry contract
-    const feeTypes = ['Entry', 'OpenCase'];
+    // Fee types and levels as defined in the UserRegistry contract
+    const feeTypes = ['Entry', 'OpenCase', 'FetchRuling'];
+    const securityLevels = ['Basic', 'Ultra'];
 
     // Loop through each security level and fee type to update fees
     for (let securityLevel = 0; securityLevel < fees.length; securityLevel++) {
@@ -178,11 +179,11 @@ async function configureUserRegistryFees() {
             const newFee = fees[securityLevel][feeTypeIndex];
 
             if (currentFee !== newFee) {
-                console.log(`Setting ${feeTypes[feeTypeIndex]}FeeWei for security level ${securityLevel} to ${newFee}...`);
+                console.log(`Setting ${feeTypes[feeTypeIndex]} fee for security level ${securityLevels[securityLevel]} to ${newFee}...`);
                 const hash = await contract.write.setFee([securityLevel, feeTypeIndex, newFee]);
                 await processTransaction(hash);
             } else {
-                console.log(`${feeTypes[feeTypeIndex]}FeeWei for security level ${securityLevel} is already set to ${newFee}`);
+                console.log(`${feeTypes[feeTypeIndex]} fee for security level ${securityLevels[securityLevel]} is already set to ${newFee}`);
             }
         }
     }
