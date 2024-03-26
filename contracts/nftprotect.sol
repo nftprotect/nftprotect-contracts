@@ -30,7 +30,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./iuserregistry.sol";
 import "./arbitratorregistry.sol";
-
+import "./signature-verifier.sol";
 
 contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
 {
@@ -44,6 +44,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     event ScoreThresholdChanged(uint256 threshold);
     event MetaEvidenceLoaderChanged(address mel);
     event MetaEvidenceSet(MetaEvidenceType evidenceType, string evidence);
+    // Event emitted when the signature verifier is changed
+    event SignatureVerifierChanged(address newSigVerifier);
     event Protected(uint256 indexed assetType, address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount, IUserRegistry.Security level);
     event Unprotected(address indexed dst, uint256 indexed tokenId);
     event BurnArbitrateAsked(uint256 indexed requestId, address dst, uint256 indexed tokenId);
@@ -70,6 +72,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         uint256  amount; // ERC1155 and ERC20 only
         address  owner;
         IUserRegistry.Security level;
+        uint256 nonce; //for security reasons
     }
     // Protected tokenId to original
     mapping(uint256 => Original) public tokens;
@@ -99,6 +102,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         uint256          externalDisputeId;
         MetaEvidenceType metaevidence;
     }
+
+    // Contract to verify a signature provided
+    SignatureVerifier            public sigVerifier;
     mapping(uint256 => Request)  public requests;
     mapping(uint256 => uint256)  public tokenToRequest;
     mapping(uint256 => uint256)  public disputeToRequest;
@@ -127,14 +133,26 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     uint256            public   scoreThreshold;
     uint256            internal allow;
 
-    constructor(address areg) ERC721("NFT Protect", "pNFT")
+    constructor(address areg, address signatureVerifier) ERC721("NFT Protect", "pNFT")
     {
         emit Deployed();
         setArbitratorRegistry(areg);
+        setSignatureVerifier(signatureVerifier);
         setBurnOnAction(false);
         setScoreThreshold(50);
         setBase("");
         setMetaEvidenceLoader(_msgSender());
+    }
+
+    /**
+     * @dev Sets the signature verifier contract address.
+     * This method can only be called by the owner of the contract.
+     * @param newSigVerifier The address of the new signature verifier contract.
+     */
+    function setSignatureVerifier(address newSigVerifier) public onlyOwner {
+        require(newSigVerifier != address(0), "SignatureVerifier address cannot be zero");
+        sigVerifier = SignatureVerifier(newSigVerifier);
+        emit SignatureVerifierChanged(newSigVerifier);
     }
 
     function setArbitratorRegistry(address areg) public onlyOwner
@@ -265,7 +283,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             IUserRegistry.FeeType.Entry
         );
         _mint(user, ++tokensCounter);
-        tokens[tokensCounter] = Original(std, contr, tokenId, amount, user, level);
+        tokens[tokensCounter] = Original(std, contr, tokenId, amount, user, level, 0);
         allow = 1;
         if(std == Standard.ERC721)
         {
@@ -289,11 +307,20 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      * The owner of the original token and the owner of protected token must
      * be the same. If not, need to call askOwnershipAdjustment() first.
      */
-    function burn(uint256 tokenId, address dst, uint256 arbitratorId, string memory evidence) public payable
+    function burn(uint256 tokenId, address dst, uint256 arbitratorId, string memory evidence, bytes memory signature) public payable
     {
         require(_isApprovedOrOwner(_msgSender(), tokenId), "not owner");
         require(isOriginalOwner(tokenId, _msgSender()), "need to askOwnershipAdjustment");
-        if(tokens[tokenId].level == IUserRegistry.Security.Basic)
+        Original memory token = tokens[tokenId];
+        require(sigVerifier.verify(
+            tokenId,
+            _msgSender(),
+            _msgSender(),
+            token.nonce,
+            signature
+        ), "invalid signature");
+        token.nonce++;
+        if(token.level == IUserRegistry.Security.Basic)
         {
             _burn(dst == address(0) ? _msgSender() : dst, tokenId);
         }
@@ -400,11 +427,19 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     /** @dev Transfer ownerhip for `tokenId` to the owner of protected token. Must
      *  be called by the current owner of `tokenId`.
      */
-    function adjustOwnership(uint256 tokenId, uint256 arbitratorId, string memory evidence) public payable
+    function adjustOwnership(uint256 tokenId, uint256 arbitratorId, string memory evidence, bytes memory signature) public payable
     {
         require(!_hasRequest(tokenId), "have request");
         require(isOriginalOwner(tokenId, _msgSender()), "not owner");
         Original storage token = tokens[tokenId];
+        require(sigVerifier.verify(
+            tokenId,
+            _msgSender(),
+            ownerOf(tokenId),
+            tokens[tokenId].nonce,
+            signature
+        ), "invalid signature");
+        tokens[tokenId].nonce++;
         if(token.level == IUserRegistry.Security.Basic)
         {
             token.owner = ownerOf(tokenId);
@@ -481,12 +516,21 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      * @dev Must be called by the owner of the original token to confirm or reject
      * ownership transfer to the new owner of the protected token.
      */
-    function answerOwnershipAdjustment(uint256 requestId, bool accept, string memory evidence) public payable
+    function answerOwnershipAdjustment(uint256 requestId, bool accept, string memory evidence, bytes memory signature) public payable
     {
         Request storage request = requests[requestId];
         require(request.status == Status.Initial || request.status == Status.Rejected, "answered");
         Original storage token = tokens[request.tokenId];
         require(isOriginalOwner(request.tokenId, _msgSender()), "not owner");
+        require(sigVerifier.verify(
+            token.tokenId,
+            _msgSender(),
+            ownerOf(token.tokenId),
+            token.nonce,
+            signature
+        ), "invalid signature");
+        token.nonce++;
+
         if (accept)
         {
             if (token.level == IUserRegistry.Security.Basic)
