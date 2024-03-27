@@ -34,7 +34,7 @@ contract SimpleDiscounter is IDiscounter, Ownable {
     // Mapping from user addresses to their available discount count.
     mapping(address => uint256) public discounts;
     // Address allowed to consume discounts
-    address private _discountConsumer;
+    address public discountConsumer;
 
     // Event emitted when a discount is used.
     event DiscountUsed(address indexed user, uint256 amount);
@@ -43,30 +43,30 @@ contract SimpleDiscounter is IDiscounter, Ownable {
 
     /**
      * @dev Sets the initial discount consumer address upon contract deployment.
-     * @param discountConsumer The address of the initial discount consumer.
+     * @param consumer The address of the initial discount consumer.
      */
-    constructor(address discountConsumer) {
-        _discountConsumer = discountConsumer;
+    constructor(address consumer) {
+        discountConsumer = consumer;
     }
 
     /**
      * @dev Ensures that only the designated discount consumer can call a function.
      */
     modifier onlyDiscountConsumer() {
-        require(msg.sender == _discountConsumer, "SimpleDiscounter: caller is not the discount consumer");
+        require(msg.sender == discountConsumer, "SimpleDiscounter: caller is not the discount consumer");
         _;
     }
 
     /**
      * @dev Allows the contract owner to set or change the discount consumer address.
-     * @param discountConsumer The address to become the new discount consumer.
+     * @param consumer The address to become the new discount consumer.
      *
      * Requirements:
      * - `discountConsumer` cannot be the zero address.
      */
-    function setDiscountConsumer(address discountConsumer) external onlyOwner {
-        require(discountConsumer != address(0), "SimpleDiscounter: invalid discount consumer address");
-        _discountConsumer = discountConsumer;
+    function setDiscountConsumer(address consumer) external onlyOwner {
+        require(consumer != address(0), "SimpleDiscounter: invalid discount consumer address");
+        discountConsumer = consumer;
         emit DiscountConsumerChanged(discountConsumer);
     }
 

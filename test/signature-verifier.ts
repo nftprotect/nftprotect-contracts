@@ -47,7 +47,7 @@ describe("SignatureVerifier", function () {
         });
     };
 
-    beforeEach(async function () {
+    before(async function () {
 
         // Load the contract instance using the deployment function
         ({ signatureVerifier } = await loadFixture(deploy));
