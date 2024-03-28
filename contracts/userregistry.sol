@@ -163,6 +163,77 @@ contract UserRegistry is Ownable, IUserRegistry
         }
     }
 
+    function nextFeeForUser(address user, Security level, FeeType feeType) public view returns(uint256) {
+        if (address(coupons) != address(0) && level == Security.Basic && feeType == FeeType.Entry && coupons.hasDiscount(user)) {
+            return 0;
+        }
+        return feeForUser(user, level, feeType);
+    }
+
+    // Internal function to process affiliate payment
+    function _processAffiliatePayment(address user, address payable referrer, uint256 finalFee) internal returns (uint256) {
+        require(referrer != user, "UserRegistry: invalid referrer");
+        if (referrer == address(0)) {
+            return finalFee;
+        }
+        uint8 ap = partners[referrer].affiliatePercent > 0 ? partners[referrer].affiliatePercent : affiliatePercent;
+        uint256 affiliatePayment = finalFee * ap / 100;
+        if (affiliatePayment > 0) {
+            referrer.sendValue(affiliatePayment);
+            emit AffiliatePayment(user, referrer, affiliatePayment);
+        }
+        return finalFee - affiliatePayment;
+    }
+
+    // Internal function to process coupon discount
+    function _processCoupon(address user, Security level, FeeType feeType) internal returns (bool) {
+        // TODO: Shouldn't we allow coupons for non-entry fees?
+        if (address(coupons) != address(0) && level == Security.Basic && feeType == FeeType.Entry && coupons.hasDiscount(user)) {
+            require(msg.value == 0, "UserRegistry: Incorrect payment amount");
+            coupons.useDiscount(user);
+            return true;
+        }
+        return false;
+    }
+
+    function _handlePayment(address sender, address user, Security level, FeeType feeType, uint256 value) internal {
+        address referrer = referrers[user];
+        // Get fee with partner's discount applied
+        uint256 finalFee = feeForUser(sender, level, feeType);
+        // If there's no fee, then just exit
+        if (finalFee == 0) {
+            require(value == 0, "UserRegistry: Incorrect payment amount");
+            return;
+        }
+        // TODO: Potential problem: Anyone can burn your coupon by protecting NFT for you!
+        // If use sender instead, then coupons won't work with MultiWrapper and partners (technically the same)
+        // Maybe allow only for listed partners?
+        bool couponUsed = _processCoupon(user, level, feeType);
+
+        if (couponUsed) {
+            require(value == 0, "UserRegistry: Incorrect payment amount");
+            return;
+        } else {
+            require(value == finalFee, "UserRegistry: Incorrect payment amount");
+        }
+
+        // Set hasPaidProtections
+        // TODO: Should we set this if finalFee == 0 ?
+        if (feeType == FeeType.Entry && !hasPaidProtections[user]) {
+            hasPaidProtections[user] = true;
+        }
+
+        // Process affiliate payment if there's a referrer
+        uint256 restFinalFee = referrer == address(0) ?
+            finalFee :
+            _processAffiliatePayment(user, payable(referrer), finalFee);
+
+        // Transfer the remaining fee to the contract owner
+        if (restFinalFee > 0) {
+            payable(owner()).sendValue(finalFee);
+        }
+    }
+
     function processPayment(address sender, address user, address payable referrer, Security level, FeeType feeType) public override payable onlyNFTProtect
     {
         // Set referrer only if not set yet and not null and user has no paid protections
@@ -171,50 +242,8 @@ contract UserRegistry is Ownable, IUserRegistry
             referrers[user] = referrer;
             emit ReferrerSet(user, referrer);
         }
-        referrer = referrers[user];
 
-        if (address(coupons) != address(0)) {
-            if (level == Security.Basic && feeType == FeeType.Entry && coupons.hasDiscount(user))
-            {
-                coupons.useDiscount(user);
-                return;
-            }
-        }
-
-        // Get fee with partner's discount applied
-        uint256 finalFee = feeForUser(sender, level, feeType);
-
-        require(msg.value == finalFee, "UserRegistry: Incorrect payment amount");
-
-        // If there's no fee, then just exit
-        if (finalFee == 0) {
-            return;
-        }
-
-        // Referral logic only on entry payment
-        if (feeType == FeeType.Entry) {
-            // Process affiliate payment if there's a referrer
-            if (referrer != address(0)) {
-                require(referrer != user, "UserRegistry: invalid referrer");
-                uint8 ap = partners[referrer].affiliatePercent > 0 ? partners[referrer].affiliatePercent : affiliatePercent;
-                uint256 affiliatePayment = finalFee * ap / 100;
-                if (affiliatePayment > 0) {
-                    referrer.sendValue(affiliatePayment);
-                    emit AffiliatePayment(user, referrer, affiliatePayment);
-                }
-                finalFee -= affiliatePayment;
-            }
-
-            // Set hasPaidProtections
-            if (!hasPaidProtections[user]) {
-                hasPaidProtections[user] = true;
-            }
-        }
-
-        // Transfer the remaining fee to the contract owner
-        if (finalFee > 0) {
-            payable(owner()).sendValue(finalFee);
-        }
+        _handlePayment(sender, user, level, feeType, msg.value);
     }
 
     function registerDID(IUserDID did) public onlyOwner
@@ -285,12 +314,16 @@ contract UserRegistry is Ownable, IUserRegistry
 
     function successorRequest(address user, uint256 arbitratorId, string memory evidence) public payable returns(uint256)
     {
-        // TODO: process payment
         require(isRegistered(user), "UserRegistry: Unregistered user");
+        // Get fee with partner's discount and coupon applied
+        uint256 finalFee = nextFeeForUser(msg.sender, Security.Ultra, FeeType.OpenCase);
+        require(msg.value >= finalFee, "UserRegistry: Incorrect payment amount");
+        _handlePayment(msg.sender, msg.sender, Security.Ultra, FeeType.OpenCase, finalFee);
+
         IArbitrableProxy arbitrableProxy;
         bytes memory extraData;
         (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
-        uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value}(extraData, metaEvidenceURI, numberOfRulingOptions);
+        uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value - finalFee}(extraData, metaEvidenceURI, numberOfRulingOptions);
         uint256 disputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
         requestsCounter++;
         requests[requestsCounter] = SuccessorRequest(user, _msgSender(), arbitrableProxy, disputeId, externalDisputeId);

@@ -407,17 +407,14 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         IArbitrableProxy arbitrableProxy;
         bytes memory extraData;
         (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
-        uint256 finalFee = userRegistry.feeForUser(user, level, IUserRegistry.FeeType.OpenCase);
-        if (finalFee > 0) {
-            require(msg.value >= finalFee, 'incorrect fee'); // Maybe ask Kleros?
-            userRegistry.processPayment{value: finalFee}(
-                user,
-                user,
-                payable(address(0)), // Referrer is already set in the respective functions
-                level,
-                IUserRegistry.FeeType.OpenCase
-            );
-        }
+        uint256 finalFee = userRegistry.nextFeeForUser(user, level, IUserRegistry.FeeType.OpenCase);
+        userRegistry.processPayment{value: finalFee}(
+            user,
+            user,
+            payable(address(0)), // Referrer is already set on entry
+            level,
+            IUserRegistry.FeeType.OpenCase
+        );
         externalDisputeId = arbitrableProxy.createDispute{value: msg.value - finalFee}(extraData, metaEvidences[metaEvidenceType], numberOfRulingOptions);
         localDisputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
         arbitrableProxy.submitEvidence(localDisputeId, evidence);
@@ -658,12 +655,11 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(isRuled, "ruling pending");
         bool accept = ruling == 1;
         request.status = accept ? Status.Accepted : Status.Rejected;
-        // Может оплатить любой, но в размере за пользователя?? какого??
         Original storage token = tokens[request.tokenId];
         userRegistry.processPayment{value: msg.value}(
             _msgSender(),
             _msgSender(),
-            payable(address(0)), // Referrer is already set in the respective functions
+            payable(address(0)), // Referrer is already set on entry
             token.level,
             IUserRegistry.FeeType.FetchRuling
         );
