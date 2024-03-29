@@ -40,6 +40,7 @@ contract UserRegistry is Ownable, IUserRegistry
     event FeeChanged(Security indexed level, FeeType indexed feeType, uint256 feeWei);
     event ReferrerSet(address indexed user, address indexed referrer);
     event PartnerSet(address indexed partner, uint8 discount, uint8 affiliatePercent);
+    event PartnerDeleted(address indexed partner);
     event CouponsSet(address indexed newAddress);
     event DIDRegistered(address indexed did, string provider);
     event DIDUnregistered(address indexed did);
@@ -71,6 +72,7 @@ contract UserRegistry is Ownable, IUserRegistry
 
     struct Partner
     {
+        bool            isRegistered;
         uint8           discount;
         uint8           affiliatePercent;
     }
@@ -138,6 +140,7 @@ contract UserRegistry is Ownable, IUserRegistry
     function setPartner(address partner, uint8 discount, uint8 affPercent) public onlyOwner {
         require(discount <= 100, "UserRegistry: Invalid discount");
         partners[partner] = Partner(
+            true,
             discount,
             affPercent
         );
@@ -146,7 +149,7 @@ contract UserRegistry is Ownable, IUserRegistry
 
     function deletePartner(address partner) public onlyOwner {
         delete partners[partner];
-        emit PartnerSet(partner, 0, 0);
+        emit PartnerDeleted(partner);
     }
 
     function feeForUser(address user, Security level, FeeType feeType) public view returns(uint256) {
@@ -212,10 +215,12 @@ contract UserRegistry is Ownable, IUserRegistry
             require(value == 0, "UserRegistry: Incorrect payment amount");
             return;
         }
-        // TODO: Potential problem: Anyone can burn your coupon by protecting NFT for you!
-        // If use sender instead, then coupons won't work with MultiWrapper and partners (technically the same)
-        // Maybe allow only for listed partners?
-        bool couponUsed = _processCoupon(user, level, feeType);
+
+        // Allow using coupons by user himself or by registered partner only
+        bool couponUsed = (user == sender || partners[sender].isRegistered ) ?
+            _processCoupon(user, level, feeType) : 
+            false
+        ;
 
         if (couponUsed) {
             require(value == 0, "UserRegistry: Incorrect payment amount");
