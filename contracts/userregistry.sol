@@ -66,7 +66,7 @@ contract UserRegistry is Ownable, IUserRegistry
     mapping(address => address)         public successors;
     mapping(address => address payable) public referrers;
     mapping(address => Partner) public partners;
-    mapping(address => bool) public hasPaidProtections;
+    mapping(address => bool) public hasProtections;
     uint256[3][2] public fees; // [Security][FeeType]
 
     struct Partner
@@ -188,6 +188,7 @@ contract UserRegistry is Ownable, IUserRegistry
     // Internal function to process coupon discount
     function _processCoupon(address user, Security level, FeeType feeType) internal returns (bool) {
         // TODO: Shouldn't we allow coupons for non-entry fees?
+        // Probably we will remove coupons at all
         if (address(coupons) != address(0) && level == Security.Basic && feeType == FeeType.Entry && coupons.hasDiscount(user)) {
             require(msg.value == 0, "UserRegistry: Incorrect payment amount");
             coupons.useDiscount(user);
@@ -200,6 +201,12 @@ contract UserRegistry is Ownable, IUserRegistry
         address referrer = referrers[user];
         // Get fee with partner's discount applied
         uint256 finalFee = feeForUser(sender, level, feeType);
+
+        // Set hasProtections
+        if (feeType == FeeType.Entry && !hasProtections[user]) {
+            hasProtections[user] = true;
+        }
+
         // If there's no fee, then just exit
         if (finalFee == 0) {
             require(value == 0, "UserRegistry: Incorrect payment amount");
@@ -217,12 +224,6 @@ contract UserRegistry is Ownable, IUserRegistry
             require(value == finalFee, "UserRegistry: Incorrect payment amount");
         }
 
-        // Set hasPaidProtections
-        // TODO: Should we set this if finalFee == 0 ?
-        if (feeType == FeeType.Entry && !hasPaidProtections[user]) {
-            hasPaidProtections[user] = true;
-        }
-
         // Process affiliate payment if there's a referrer
         uint256 restFinalFee = referrer == address(0) ?
             finalFee :
@@ -236,8 +237,8 @@ contract UserRegistry is Ownable, IUserRegistry
 
     function processPayment(address sender, address user, address payable referrer, Security level, FeeType feeType) public override payable onlyNFTProtect
     {
-        // Set referrer only if not set yet and not null and user has no paid protections
-        if (referrers[user] == address(0) && referrer != address(0) && !hasPaidProtections[user])
+        // Set referrer only if not set yet and not null and user has no protections
+        if (referrers[user] == address(0) && referrer != address(0) && !hasProtections[user])
         {
             referrers[user] = referrer;
             emit ReferrerSet(user, referrer);
