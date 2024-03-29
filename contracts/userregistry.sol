@@ -37,16 +37,13 @@ contract UserRegistry is Ownable, IUserRegistry
     event ArbitratorRegistryChanged(address areg);
     event AffiliatePercentChanged(uint8 percent);
     event AffiliatePayment(address indexed from, address indexed to, uint256 amountWei);
-    event FeeChanged(Security indexed level, FeeType indexed feeType, uint256 feeWei);
+    event FeeChanged(FeeType indexed feeType, uint256 feeWei);
     event ReferrerSet(address indexed user, address indexed referrer);
     event PartnerSet(address indexed partner, uint8 discount, uint8 affiliatePercent);
     event PartnerDeleted(address indexed partner);
     event CouponsSet(address indexed newAddress);
     event DIDRegistered(address indexed did, string provider);
     event DIDUnregistered(address indexed did);
-    event SuccessorRequested(uint256 indexed requestId, address indexed user, address indexed successor);
-    event SuccessorApproved(uint256 indexed requestId);
-    event SuccessorRejected(uint256 indexed requestId);
     event MetaEvidenceSet(string evidence);
 
     modifier onlyNFTProtect()
@@ -64,11 +61,10 @@ contract UserRegistry is Ownable, IUserRegistry
     uint8              public   affiliatePercent;
     uint256            constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
 
-    mapping(address => address)         public successors;
     mapping(address => address payable) public referrers;
     mapping(address => Partner) public partners;
     mapping(address => bool) public hasProtections;
-    uint256[3][2] public fees; // [Security][FeeType]
+    uint256[3] public fees; // [FeeType]
 
     struct Partner
     {
@@ -77,35 +73,23 @@ contract UserRegistry is Ownable, IUserRegistry
         uint8           affiliatePercent;
     }
 
-    struct SuccessorRequest
-    {
-        address          user;
-        address          successor;
-        IArbitrableProxy arbitrator;
-        uint256          externalDisputeId;
-        uint256          localDisputeId;
-    }
-    mapping(uint256 => SuccessorRequest) public requests;
-    uint256                              public requestsCounter;
-
     constructor(address areg, IUserDID did, address nftprotectaddr)
     {
         emit Deployed();
         nftprotect = nftprotectaddr;
         metaEvidenceLoader = _msgSender();
-        setFee(Security.Basic, FeeType.Entry, 0);
-        setFee(Security.Basic, FeeType.OpenCase, 0);
-        setFee(Security.Ultra, FeeType.Entry, 0);
-        setFee(Security.Ultra, FeeType.OpenCase, 0);
+        setFee(FeeType.Entry, 0);
+        setFee(FeeType.OpenCase, 0);
+        setFee(FeeType.FetchRuling, 0);
         setAffiliatePercent(0);
         setArbitratorRegistry(areg);
         registerDID(did);
     }
 
-    function setFee(Security level, FeeType feeType, uint256 fw) public onlyOwner
+    function setFee(FeeType feeType, uint256 fw) public onlyOwner
     {
-        fees[uint256(level)][uint256(feeType)] = fw;
-        emit FeeChanged(level, feeType, fw);
+        fees[uint256(feeType)] = fw;
+        emit FeeChanged(feeType, fw);
     }
 
     /**
@@ -152,8 +136,8 @@ contract UserRegistry is Ownable, IUserRegistry
         emit PartnerDeleted(partner);
     }
 
-    function feeForUser(address user, Security level, FeeType feeType) public view returns(uint256) {
-        uint256 fee = fees[uint256(level)][uint256(feeType)];
+    function feeForUser(address user, FeeType feeType) public view returns(uint256) {
+        uint256 fee = fees[uint256(feeType)];
         if (fee == 0) {
             return 0;
         }
@@ -166,11 +150,11 @@ contract UserRegistry is Ownable, IUserRegistry
         }
     }
 
-    function nextFeeForUser(address user, Security level, FeeType feeType) public view returns(uint256) {
-        if (address(coupons) != address(0) && level == Security.Basic && feeType == FeeType.Entry && coupons.hasDiscount(user)) {
+    function nextFeeForUser(address user, FeeType feeType) public view returns(uint256) {
+        if (address(coupons) != address(0) && feeType == FeeType.Entry && coupons.hasDiscount(user)) {
             return 0;
         }
-        return feeForUser(user, level, feeType);
+        return feeForUser(user, feeType);
     }
 
     // Internal function to process affiliate payment
@@ -189,10 +173,10 @@ contract UserRegistry is Ownable, IUserRegistry
     }
 
     // Internal function to process coupon discount
-    function _processCoupon(address user, Security level, FeeType feeType) internal returns (bool) {
+    function _processCoupon(address user, FeeType feeType) internal returns (bool) {
         // TODO: Shouldn't we allow coupons for non-entry fees?
         // Probably we will remove coupons at all
-        if (address(coupons) != address(0) && level == Security.Basic && feeType == FeeType.Entry && coupons.hasDiscount(user)) {
+        if (address(coupons) != address(0) && feeType == FeeType.Entry && coupons.hasDiscount(user)) {
             require(msg.value == 0, "UserRegistry: Incorrect payment amount");
             coupons.useDiscount(user);
             return true;
@@ -200,10 +184,10 @@ contract UserRegistry is Ownable, IUserRegistry
         return false;
     }
 
-    function _handlePayment(address sender, address user, Security level, FeeType feeType, uint256 value) internal {
+    function _handlePayment(address sender, address user, FeeType feeType, uint256 value) internal {
         address referrer = referrers[user];
         // Get fee with partner's discount applied
-        uint256 finalFee = feeForUser(sender, level, feeType);
+        uint256 finalFee = feeForUser(sender, feeType);
 
         // Set hasProtections
         if (feeType == FeeType.Entry && !hasProtections[user]) {
@@ -218,7 +202,7 @@ contract UserRegistry is Ownable, IUserRegistry
 
         // Allow using coupons by user himself or by registered partner only
         bool couponUsed = (user == sender || partners[sender].isRegistered ) ?
-            _processCoupon(user, level, feeType) : 
+            _processCoupon(user, feeType) : 
             false
         ;
 
@@ -240,7 +224,7 @@ contract UserRegistry is Ownable, IUserRegistry
         }
     }
 
-    function processPayment(address sender, address user, address payable referrer, Security level, FeeType feeType) public override payable onlyNFTProtect
+    function processPayment(address sender, address user, address payable referrer, FeeType feeType) public override payable onlyNFTProtect
     {
         // Set referrer only if not set yet and not null and user has no protections
         if (referrers[user] == address(0) && referrer != address(0) && !hasProtections[user])
@@ -249,7 +233,7 @@ contract UserRegistry is Ownable, IUserRegistry
             emit ReferrerSet(user, referrer);
         }
 
-        _handlePayment(sender, user, level, feeType, msg.value);
+        _handlePayment(sender, user, feeType, msg.value);
     }
 
     function registerDID(IUserDID did) public onlyOwner
@@ -298,44 +282,9 @@ contract UserRegistry is Ownable, IUserRegistry
         return scoresMax;
     }
 
-    function isSuccessor(address user, address successor) public view override returns(bool)
-    {
-        return successors[user] == successor;
-    }
-
-    function hasSuccessor(address user) public view override returns(bool)
-    {
-        return successors[user] != address(0);
-    }
-
-    function successorOf(address user) external view override returns(address)
-    {
-        return successors[user];
-    }
-
     function setMetaEvidenceLoader(address mel) public override onlyNFTProtect
     {
         metaEvidenceLoader = mel;
-    }
-
-    function successorRequest(address user, uint256 arbitratorId, string memory evidence) public payable returns(uint256)
-    {
-        require(isRegistered(user), "UserRegistry: Unregistered user");
-        // Get fee with partner's discount and coupon applied
-        uint256 finalFee = nextFeeForUser(msg.sender, Security.Ultra, FeeType.OpenCase);
-        require(msg.value >= finalFee, "UserRegistry: Incorrect payment amount");
-        _handlePayment(msg.sender, msg.sender, Security.Ultra, FeeType.OpenCase, finalFee);
-
-        IArbitrableProxy arbitrableProxy;
-        bytes memory extraData;
-        (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
-        uint256 externalDisputeId = arbitrableProxy.createDispute{value: msg.value - finalFee}(extraData, metaEvidenceURI, numberOfRulingOptions);
-        uint256 disputeId = arbitrableProxy.externalIDtoLocalID(externalDisputeId);
-        requestsCounter++;
-        requests[requestsCounter] = SuccessorRequest(user, _msgSender(), arbitrableProxy, disputeId, externalDisputeId);
-        emit SuccessorRequested(requestsCounter, user, _msgSender());
-        arbitrableProxy.submitEvidence(disputeId, evidence);
-        return requestsCounter;
     }
 
     function submitMetaEvidence(string memory evidence) public
@@ -345,22 +294,4 @@ contract UserRegistry is Ownable, IUserRegistry
         emit MetaEvidenceSet(evidence);
     }
 
-    function fetchRuling(uint256 requestId) external
-    {
-        SuccessorRequest memory request = requests[requestId];
-        IArbitrableProxy arbitrator = request.arbitrator;
-        (, bool isRuled, uint256 ruling,) = arbitrator.disputes(request.localDisputeId);
-        require(isRuled, "UserRegistry: Ruling pending");
-
-        if (ruling == 1)
-        {
-            successors[request.user] = request.successor;
-            emit SuccessorApproved(requestId);
-        }
-        else
-        {
-            emit SuccessorRejected(requestId);
-        }
-        delete requests[requestId];
-    }
 }

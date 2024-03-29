@@ -27,25 +27,13 @@ interface IUserRegistry
 
     function scores(address user) external view returns(uint256);
 
-    function feeForUser(address user, Security level, FeeType feeType) external view returns(uint256);
+    function feeForUser(address user, FeeType feeType) external view returns(uint256);
     
-    function nextFeeForUser(address user, Security level, FeeType feeType) external view returns(uint256);
+    function nextFeeForUser(address user, FeeType feeType) external view returns(uint256);
 
-    function isSuccessor(address user, address successor) external view returns(bool);
-
-    function hasSuccessor(address user) external view returns(bool);
-
-    function successorOf(address user) external view returns(address);
-
-    function processPayment(address sender, address user, address payable referrer, Security level, FeeType feeType) external payable;
+    function processPayment(address sender, address user, address payable referrer, FeeType feeType) external payable;
 
     function setMetaEvidenceLoader(address mel) external;
-
-    enum Security
-    {
-        Basic,
-        Ultra
-    }
 
     enum FeeType
     {
