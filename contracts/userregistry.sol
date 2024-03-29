@@ -25,7 +25,6 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./iuserregistry.sol";
 import "./arbitratorregistry.sol";
-import "./iuserdid.sol";
 import "./iarbitrableproxy.sol";
 import "./idiscounter.sol";
 
@@ -42,9 +41,6 @@ contract UserRegistry is Ownable, IUserRegistry
     event PartnerSet(address indexed partner, uint8 discount, uint8 affiliatePercent);
     event PartnerDeleted(address indexed partner);
     event CouponsSet(address indexed newAddress);
-    event DIDRegistered(address indexed did, string provider);
-    event DIDUnregistered(address indexed did);
-    event MetaEvidenceSet(string evidence);
 
     modifier onlyNFTProtect()
     {
@@ -52,14 +48,10 @@ contract UserRegistry is Ownable, IUserRegistry
         _;
     }
 
-    string             public   metaEvidenceURI;
     address            public   nftprotect;
     IDiscounter        public   coupons;
-    address            public   metaEvidenceLoader;
     ArbitratorRegistry public   arbitratorRegistry;
-    IUserDID[]         public   dids;
     uint8              public   affiliatePercent;
-    uint256            constant numberOfRulingOptions = 2; // Notice that option 0 is reserved for RefusedToArbitrate
 
     mapping(address => address payable) public referrers;
     mapping(address => Partner) public partners;
@@ -73,17 +65,15 @@ contract UserRegistry is Ownable, IUserRegistry
         uint8           affiliatePercent;
     }
 
-    constructor(address areg, IUserDID did, address nftprotectaddr)
+    constructor(address areg, address nftprotectaddr)
     {
         emit Deployed();
         nftprotect = nftprotectaddr;
-        metaEvidenceLoader = _msgSender();
         setFee(FeeType.Entry, 0);
         setFee(FeeType.OpenCase, 0);
         setFee(FeeType.FetchRuling, 0);
         setAffiliatePercent(0);
         setArbitratorRegistry(areg);
-        registerDID(did);
     }
 
     function setFee(FeeType feeType, uint256 fw) public onlyOwner
@@ -234,64 +224,6 @@ contract UserRegistry is Ownable, IUserRegistry
         }
 
         _handlePayment(sender, user, feeType, msg.value);
-    }
-
-    function registerDID(IUserDID did) public onlyOwner
-    {
-        dids.push(did);
-        emit DIDRegistered(address(did), did.provider());
-    }
-
-    function unregisterDID(IUserDID did) public onlyOwner
-    {
-        for(uint256 i = 0; i < dids.length; ++i)
-        {
-            if(dids[i] == did)
-            {
-                dids[i] = dids[dids.length - 1];
-                dids.pop();
-                emit DIDUnregistered(address(did));
-                break;
-            }
-        }
-    }
-
-    function isRegistered(address user) public view override returns(bool)
-    {
-        for(uint256 i = 0; i < dids.length; ++i)
-        {
-            if(dids[i].isIdentified(user))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function scores(address user) public view override returns(uint256)
-    {
-        uint256 scoresMax = 0;
-        for(uint256 i = 0; i < dids.length; ++i)
-        {
-            uint256 scoresCur = dids[i].scores(user);
-            if(scoresCur > scoresMax)
-            {
-                scoresMax = scoresCur;
-            }
-        }
-        return scoresMax;
-    }
-
-    function setMetaEvidenceLoader(address mel) public override onlyNFTProtect
-    {
-        metaEvidenceLoader = mel;
-    }
-
-    function submitMetaEvidence(string memory evidence) public
-    {
-        require(_msgSender() == metaEvidenceLoader, "UserRegistry: forbidden");
-        metaEvidenceURI = evidence;
-        emit MetaEvidenceSet(evidence);
     }
 
 }

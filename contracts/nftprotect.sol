@@ -194,10 +194,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     function setMetaEvidenceLoader(address mel) public onlyOwner
     {
         metaEvidenceLoader = mel;
-        if (address(userRegistry) != address(0))
-        {
-            userRegistry.setMetaEvidenceLoader(mel);
-        }
         emit MetaEvidenceLoaderChanged(mel);
     }
 
@@ -268,7 +264,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         {
             user = _msgSender();
         } 
-        require(userRegistry.isRegistered(user), "unregistered");
         userRegistry.processPayment{value: msg.value}(
             _msgSender(),
             user,
@@ -597,8 +592,14 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize) internal virtual override(ERC721)
     {
         super._beforeTokenTransfer(from, to, tokenId, batchSize);
-        require(userRegistry.isRegistered(to), "unregistered");
         require(!_hasRequest(tokenId), "under dispute");
+        if (!allowThirdPartyTransfers) {
+            address originalOwner = originalOwnerOf(tokenId);
+            address owner = ownerOf(tokenId);
+            if (owner != originalOwner) {
+                require(to == originalOwner, "Transfer to non-original owner not allowed");
+            }
+        }
     }
 
     function rescueERC20(address erc20, uint256 amount, address receiver) public onlyOwner

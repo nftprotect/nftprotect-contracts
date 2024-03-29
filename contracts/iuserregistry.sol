@@ -23,17 +23,11 @@ pragma solidity ^0.8.0;
 
 interface IUserRegistry
 {
-    function isRegistered(address user) external view returns(bool);
-
-    function scores(address user) external view returns(uint256);
-
     function feeForUser(address user, FeeType feeType) external view returns(uint256);
     
     function nextFeeForUser(address user, FeeType feeType) external view returns(uint256);
 
     function processPayment(address sender, address user, address payable referrer, FeeType feeType) external payable;
-
-    function setMetaEvidenceLoader(address mel) external;
 
     enum FeeType
     {
