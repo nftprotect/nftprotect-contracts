@@ -1,5 +1,5 @@
 // Fee for protecting (Wei)
-export const fees = [[0n, 0n, 0n], [0n, 0n, 0n]] // [[Basic], [Ultra]]
+export const fees = [0n, 0n, 0n]
 // Account who can update MetaEvidences
 export const metaEvidenceLoader = '0xD05B13E2C5E0e1071442F9F7C99beE136ecced43'
 // Arbitrators config

@@ -25,7 +25,7 @@ async function main() {
 
       let constructorArguments: any[] = [];
       if (contractName === "UserRegistry") {
-        constructorArguments = [networkData["ArbitratorRegistry"], networkData["UserDIDDummyAllowAll"], networkData["NFTProtect"]];
+        constructorArguments = [networkData["ArbitratorRegistry"], networkData["NFTProtect"]];
       } else if (contractName === "NFTProtect") {
         constructorArguments = [networkData["ArbitratorRegistry"], networkData["SignatureVerifier"]];
       } else if (contractName === "MultipleProtectHelper") {

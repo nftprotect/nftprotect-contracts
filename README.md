@@ -39,10 +39,9 @@ yarn export-abi
 ### Sepolia
 - [SignatureVerifier](https://sepolia.etherscan.io/address/0x023dc7bfb3d840003b39f676bc4f1cc06d78ab49)
 - [ArbitratorRegistry](https://sepolia.etherscan.io/address/0x25bf41c8f7ea92091260c9e50bb44566a0719bd7)
-- [UserDIDDummyAllowAll](https://sepolia.etherscan.io/address/0x4e20ddceea48ecbf26bcb4c0cedb9d4bd4df2f3f)
-- [NFTProtect](https://sepolia.etherscan.io/address/0xcb0e6c944bdd44e80bd04d28e6467250f1d4c0ce)
-- [UserRegistry](https://sepolia.etherscan.io/address/0x9116e40c81e19c7a7cc0286c0d861691dc0d818b)
-- [MultipleProtectHelper](https://sepolia.etherscan.io/address/0xbae36f93f56ac730456e25220d44c0af0cb9f4b2)
+- [NFTProtect](https://sepolia.etherscan.io/address/0xdabf4439820127e025cb6248896474d46e128a9c)
+- [UserRegistry](https://sepolia.etherscan.io/address/0x5625b3f101541ca372e97c171f103fce87ca6a0d)
+- [MultipleProtectHelper](https://sepolia.etherscan.io/address/0xb3488b946cc372f8c336b81e7d93b858703c668c)
 
 ## License
 

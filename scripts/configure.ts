@@ -170,21 +170,17 @@ async function configureUserRegistryFees() {
 
     // Fee types and levels as defined in the UserRegistry contract
     const feeTypes = ['Entry', 'OpenCase', 'FetchRuling'];
-    const securityLevels = ['Basic', 'Ultra'];
 
-    // Loop through each security level and fee type to update fees
-    for (let securityLevel = 0; securityLevel < fees.length; securityLevel++) {
-        for (let feeTypeIndex = 0; feeTypeIndex < fees[securityLevel].length; feeTypeIndex++) {
-            const currentFee = await contract.read.fees([BigInt(securityLevel), BigInt(feeTypeIndex)]);
-            const newFee = fees[securityLevel][feeTypeIndex];
+    for (let feeTypeIndex = 0; feeTypeIndex < fees.length; feeTypeIndex++) {
+        const currentFee = await contract.read.fees([BigInt(feeTypeIndex)]);
+        const newFee = fees[feeTypeIndex];
 
-            if (currentFee !== newFee) {
-                console.log(`Setting ${feeTypes[feeTypeIndex]} fee for security level ${securityLevels[securityLevel]} to ${newFee}...`);
-                const hash = await contract.write.setFee([securityLevel, feeTypeIndex, newFee]);
-                await processTransaction(hash);
-            } else {
-                console.log(`${feeTypes[feeTypeIndex]} fee for security level ${securityLevels[securityLevel]} is already set to ${newFee}`);
-            }
+        if (currentFee !== newFee) {
+            console.log(`Setting ${feeTypes[feeTypeIndex]} fee to ${newFee}...`);
+            const hash = await contract.write.setFee([feeTypeIndex, newFee]);
+            await processTransaction(hash);
+        } else {
+            console.log(`${feeTypes[feeTypeIndex]} fee is already set to ${newFee}`);
         }
     }
 
