@@ -363,7 +363,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         IArbitrableProxy arbitrableProxy;
         bytes memory extraData;
         (arbitrableProxy, extraData) = arbitratorRegistry.arbitrator(arbitratorId);
-        uint256 finalFee = userRegistry.nextFeeForUser(user, IUserRegistry.FeeType.OpenCase);
+        uint256 finalFee = userRegistry.feeForUser(user, IUserRegistry.FeeType.OpenCase);
         userRegistry.processPayment{value: finalFee}(
             user,
             user,

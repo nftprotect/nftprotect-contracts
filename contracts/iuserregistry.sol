@@ -25,8 +25,6 @@ interface IUserRegistry
 {
     function feeForUser(address user, FeeType feeType) external view returns(uint256);
     
-    function nextFeeForUser(address user, FeeType feeType) external view returns(uint256);
-
     function processPayment(address sender, address user, address payable referrer, FeeType feeType) external payable;
 
     enum FeeType

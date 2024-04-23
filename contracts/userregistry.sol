@@ -49,7 +49,6 @@ contract UserRegistry is Ownable, IUserRegistry
     }
 
     address            public   nftprotect;
-    IDiscounter        public   coupons;
     ArbitratorRegistry public   arbitratorRegistry;
     uint8              public   affiliatePercent;
 
@@ -82,23 +81,6 @@ contract UserRegistry is Ownable, IUserRegistry
         emit FeeChanged(feeType, fw);
     }
 
-    /**
-     * @dev Sets the address of the IDiscounter contract to be used for coupons.
-     * This allows the UserRegistry to interact with the coupons system, enabling
-     * discounts for users based on certain conditions.
-     *
-     * Requirements:
-     * - The caller must be the owner of the contract.
-     *
-     * Emits an `CouponsAddressChanged` event with the new address.
-     *
-     * @param couponsAddr The address of the IDiscounter contract.
-     */
-    function setCoupons(address couponsAddr) public onlyOwner {
-        coupons = IDiscounter(couponsAddr);
-        emit CouponsSet(couponsAddr);
-    }
-    
     function setArbitratorRegistry(address areg) public onlyOwner
     {
         arbitratorRegistry = ArbitratorRegistry(areg);
@@ -140,13 +122,6 @@ contract UserRegistry is Ownable, IUserRegistry
         }
     }
 
-    function nextFeeForUser(address user, FeeType feeType) public view returns(uint256) {
-        if (address(coupons) != address(0) && feeType == FeeType.Entry && coupons.hasDiscount(user)) {
-            return 0;
-        }
-        return feeForUser(user, feeType);
-    }
-
     // Internal function to process affiliate payment
     function _processAffiliatePayment(address user, address payable referrer, uint256 finalFee) internal returns (uint256) {
         require(referrer != user, "UserRegistry: invalid referrer");
@@ -162,18 +137,6 @@ contract UserRegistry is Ownable, IUserRegistry
         return finalFee - affiliatePayment;
     }
 
-    // Internal function to process coupon discount
-    function _processCoupon(address user, FeeType feeType) internal returns (bool) {
-        // TODO: Shouldn't we allow coupons for non-entry fees?
-        // Probably we will remove coupons at all
-        if (address(coupons) != address(0) && feeType == FeeType.Entry && coupons.hasDiscount(user)) {
-            require(msg.value == 0, "UserRegistry: Incorrect payment amount");
-            coupons.useDiscount(user);
-            return true;
-        }
-        return false;
-    }
-
     function _handlePayment(address sender, address user, FeeType feeType, uint256 value) internal {
         address referrer = referrers[user];
         // Get fee with partner's discount applied
@@ -184,23 +147,10 @@ contract UserRegistry is Ownable, IUserRegistry
             hasProtections[user] = true;
         }
 
+        require(value == finalFee, "UserRegistry: Incorrect payment amount");
         // If there's no fee, then just exit
         if (finalFee == 0) {
-            require(value == 0, "UserRegistry: Incorrect payment amount");
             return;
-        }
-
-        // Allow using coupons by user himself or by registered partner only
-        bool couponUsed = (user == sender || partners[sender].isRegistered ) ?
-            _processCoupon(user, feeType) : 
-            false
-        ;
-
-        if (couponUsed) {
-            require(value == 0, "UserRegistry: Incorrect payment amount");
-            return;
-        } else {
-            require(value == finalFee, "UserRegistry: Incorrect payment amount");
         }
 
         // Process affiliate payment if there's a referrer
