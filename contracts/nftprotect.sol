@@ -47,7 +47,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     event SignatureVerifierChanged(address newSigVerifier);
     event Protected(uint256 indexed assetType, address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount);
     event Unprotected(address indexed dst, uint256 indexed tokenId);
-    event BurnArbitrateAsked(uint256 indexed requestId, address dst, uint256 indexed tokenId);
     event BurnAnswered(uint256 indexed requestId, bool accept);
     event OwnershipAdjusted(address indexed newowner, address indexed oldowner, uint256 indexed tokenId);
     event OwnershipAdjustmentAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId);
@@ -559,10 +558,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         {
             emit OwnershipRestoreAnswered(requestId, accept);
         }
-        else if (request.reqtype == ReqType.Burn)
-        {
-            emit BurnAnswered(requestId, accept);
-        }
         if (accept)
         {
             if (request.reqtype == ReqType.OwnershipAdjustment)
@@ -572,10 +567,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             else if (request.reqtype == ReqType.OwnershipRestore)
             {
                 safeTransferFrom(ownerOf(request.tokenId), request.newowner, request.tokenId);
-            }
-            if (burnOnAction || request.reqtype == ReqType.Burn)
-            {
-                _burn(request.newowner, request.tokenId);
             }
         }
     }
