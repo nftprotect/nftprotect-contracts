@@ -41,7 +41,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     event ArbitratorRegistryChanged(address areg);
     event BurnOnActionChanged(bool boa);
     event BaseChanged(string base);
-    event ScoreThresholdChanged(uint256 threshold);
     event MetaEvidenceLoaderChanged(address mel);
     event MetaEvidenceSet(MetaEvidenceType evidenceType, string evidence);
     // Event emitted when the signature verifier is changed
@@ -132,7 +131,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     bool               public   burnOnAction;
     bool               public   allowThirdPartyTransfers;
     string             public   base;
-    uint256            public   scoreThreshold;
 
     constructor(address areg, address signatureVerifier) ERC721("NFT Protect", "pNFT")
     {
@@ -140,7 +138,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         setArbitratorRegistry(areg);
         setSignatureVerifier(signatureVerifier);
         setBurnOnAction(false);
-        setScoreThreshold(50);
         setBase("");
         setMetaEvidenceLoader(_msgSender());
     }
@@ -183,12 +180,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     function _baseURI() internal view override returns (string memory)
     {
         return base;
-    }
-
-    function setScoreThreshold(uint256 threshold) public onlyOwner
-    {
-        scoreThreshold = threshold;
-        emit ScoreThresholdChanged(threshold);
     }
 
     function setMetaEvidenceLoader(address mel) public onlyOwner
