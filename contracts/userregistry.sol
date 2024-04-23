@@ -204,9 +204,10 @@ contract UserRegistry is Ownable, IUserRegistry
         }
 
         // Process affiliate payment if there's a referrer
-        uint256 restFinalFee = referrer == address(0) ?
-            finalFee :
-            _processAffiliatePayment(user, payable(referrer), finalFee);
+        // And FeeType is entry
+        uint256 restFinalFee = ( referrer != address(0) && feeType == FeeType.Entry ) ?
+            _processAffiliatePayment(user, payable(referrer), finalFee) :
+            finalFee;
 
         // Transfer the remaining fee to the contract owner
         if (restFinalFee > 0) {
