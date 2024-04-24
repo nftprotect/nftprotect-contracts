@@ -734,16 +734,4 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(allowThirdPartyTransfers || _msgSender() == originalOwnerOf(tokenId), "approve allowed only from original owner");
         super.approve(to, tokenId);
     }
-
-    /**
-     * @dev Transfers a specified amount of ERC20 tokens from this contract to a receiver address.
-     * Can only be called by the owner of the contract.
-     * @param erc20 The address of the ERC20 token contract.
-     * @param amount The amount of tokens to be transferred.
-     * @param receiver The address of the recipient.
-     */
-    function rescueERC20(address erc20, uint256 amount, address receiver) public onlyOwner
-    {
-        IERC20(erc20).transfer(receiver, amount);
-    }
 }
