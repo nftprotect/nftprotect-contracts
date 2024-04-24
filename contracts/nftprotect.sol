@@ -113,9 +113,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     mapping(bytes32 => uint256) public disputeToRequest;
     enum MetaEvidenceType
     {
-        burn, // used in burn() - ultra
-        adjustOwnership, // used in adjustOwnership() - ultra
-        answerOwnershipAdjustment, // used in answerOwnershipAdjustment() - ultra
         askOwnershipAdjustmentArbitrate, // used in askOwnershipAdjustmentArbitrate() - basic
         askOwnershipRestoreArbitrateMistake, // used in askOwnershipRestoreArbitrate() - basic
         askOwnershipRestoreArbitratePhishing, // used in askOwnershipRestoreArbitrate() - basic
@@ -510,7 +507,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                 Status.Initial,
                 arbitratorId,
                 0, 0,
-                MetaEvidenceType.answerOwnershipAdjustment // ask have no dispute case, but answer does (ultra) 
+                MetaEvidenceType.askOwnershipAdjustmentArbitrate
             );
         tokenToRequest[tokenId] = requestsCounter;
         emit OwnershipAdjustmentAsked(requestsCounter, newowner, token.owner, tokenId);
@@ -604,7 +601,6 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             MetaEvidenceType.askOwnershipAdjustmentArbitrate,
             evidence
         );
-        request.metaevidence = MetaEvidenceType.askOwnershipAdjustmentArbitrate;
         request.status = Status.Disputed;
         bytes32 disputeKey = _getDisputeKeyHash(request.arbitratorId, request.localDisputeId);
         disputeToRequest[disputeKey] = requestId;

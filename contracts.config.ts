@@ -23,19 +23,19 @@ export const metadataURIs = {
 // List of MetaEvidences to be registered
 export const metaEvidences = [
     {
-        "id": 3,
+        "id": 0,
         "name": "OwnershipAdjustment",
         "url": "/ipfs/QmQenFQfQgXQHV9Whf3FG1JJ6tJu5fyL7mQyDPnjtveenz/metaEvidence.json"
     }, {
-        "id": 4,
+        "id": 1,
         "name": "AskOwnershipRestoreArbitrate-Mistake",
         "url": "/ipfs/QmYKeA1xREyEGxjcdHo3tdii6hXaYJtP9LKdvff114oKay/metaEvidence.json"
     }, {
-        "id": 5,
+        "id": 2,
         "name": "AskOwnershipRestoreArbitrate-Phishing",
         "url": "/ipfs/QmXFXrprk5b1eN3iVvCQ57TUcr1DUWVBzUooS8jVFJomi5/metaEvidence.json"
     }, {
-        "id": 6,
+        "id": 3,
         "name": "AskOwnershipRestoreArbitrate-ProtocolBreach",
         "url": "/ipfs/QmTF9mXDaabUZHiNfDiNSdA45TQCFxh9A45cPhTwY1e4fN/metaEvidence.json"
     }
