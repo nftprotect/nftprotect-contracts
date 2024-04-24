@@ -37,12 +37,11 @@ yarn export-abi
 
 ## Contracts
 ### Sepolia
-- [ArbitratorRegistry](https://sepolia.etherscan.io/address/0xa8d82ab740b0ba1a1b5784b86ecdc41d53e4ff15)
-- [UserDIDDummyAllowAll](https://sepolia.etherscan.io/address/0xeb18ef1022810079afbe8f8b6548b3bfd5a7cc2b)
-- [NFTProtect](https://sepolia.etherscan.io/address/0xe7807e973f42aea32da71c15a6441760f675d9cc)
-- [NFTPCoupons](https://sepolia.etherscan.io/address/0x8f1cb013426f591220c51c516ac185a21405afa8)
-- [UserRegistry](https://sepolia.etherscan.io/address/0x727718859965b1c88c79491721d9b861654f6a73)
-- [MultipleProtectHelper](https://sepolia.etherscan.io/address/0xf650a5911c5e527bb8bb2a31d5a23cf9865b17d4)
+- [SignatureVerifier](https://sepolia.etherscan.io/address/0x023dc7bfb3d840003b39f676bc4f1cc06d78ab49)
+- [ArbitratorRegistry](https://sepolia.etherscan.io/address/0x25bf41c8f7ea92091260c9e50bb44566a0719bd7)
+- [NFTProtect](https://sepolia.etherscan.io/address/0xdabf4439820127e025cb6248896474d46e128a9c)
+- [UserRegistry](https://sepolia.etherscan.io/address/0x5625b3f101541ca372e97c171f103fce87ca6a0d)
+- [MultipleProtectHelper](https://sepolia.etherscan.io/address/0xb3488b946cc372f8c336b81e7d93b858703c668c)
 
 ## License
 

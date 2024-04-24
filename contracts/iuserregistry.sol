@@ -23,25 +23,14 @@ pragma solidity ^0.8.0;
 
 interface IUserRegistry
 {
-    function isRegistered(address user) external view returns(bool);
+    function feeForUser(address user, FeeType feeType) external view returns(uint256);
+    
+    function processPayment(address sender, address user, address payable referrer, FeeType feeType) external payable;
 
-    function scores(address user) external view returns(uint256);
-
-    function feeForUser(address user, Security level) external view returns(uint256);
-
-    function isSuccessor(address user, address successor) external view returns(bool);
-
-    function hasSuccessor(address user) external view returns(bool);
-
-    function successorOf(address user) external view returns(address);
-
-    function processPayment(address sender, address user, address payable referrer, bool useCoupons, Security level) external payable;
-
-    function setMetaEvidenceLoader(address mel) external;
-
-    enum Security
+    enum FeeType
     {
-        Basic,
-        Ultra
+        Entry,
+        OpenCase,
+        FetchRuling
     }
 }

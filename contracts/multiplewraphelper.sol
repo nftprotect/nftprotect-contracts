@@ -68,11 +68,10 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
     function protect721(
         ERC721 contr,
         uint256[] memory tokensId,
-        IUserRegistry.Security level,
         address user,
         address payable referrer) public payable
     {
-        uint256 feeWei = userRegistry.feeForUser(msg.sender, level);
+        uint256 feeWei = userRegistry.feeForUser(msg.sender, IUserRegistry.FeeType.Entry);
         require(msg.value == feeWei*tokensId.length, "MultipleProtectHelper: invalid value");
         allow = 1;
         for(uint256 i = 0; i < tokensId.length; i++)
@@ -84,7 +83,6 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
                 address(contr),
                 tokensId[i],
                 1,
-                level,
                 user,
                 referrer);
             nftprotect.transferFrom(address(this), _msgSender(), pNFT);
@@ -96,7 +94,6 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
         ERC1155 contr,
         uint256[] memory tokensId,
         uint256[] memory amounts,
-        IUserRegistry.Security level,
         address user,
         address payable referrer) public payable
     {
@@ -104,7 +101,7 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
         {
             user = _msgSender();
         } 
-        uint256 feeWei = userRegistry.feeForUser(msg.sender, level);
+        uint256 feeWei = userRegistry.feeForUser(msg.sender, IUserRegistry.FeeType.Entry);
         require(msg.value == feeWei*tokensId.length, "MultipleProtectHelper: invalid value");
         require(tokensId.length == amounts.length, "MultipleProtectHelper: wrong inputs");
         allow = 1;
@@ -117,7 +114,6 @@ contract MultipleProtectHelper is Context, IERC721Receiver, IERC1155Receiver
                 address(contr),
                 tokensId[i],
                 amounts[i],
-                level,
                 user,
                 referrer);
         }

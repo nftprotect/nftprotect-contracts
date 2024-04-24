@@ -23,30 +23,14 @@ async function getOrDeployContract(contractName: string, deployFunction: () => P
   }
 }
 
-async function deployNFTProtect(arbitratorRegistry: GetContractReturnType) {
-    const nftProtect = await hre.viem.deployContract("NFTProtect", [arbitratorRegistry.address]);
+async function deployNFTProtect(arbitratorRegistry: GetContractReturnType, signatureVerifier: GetContractReturnType) {
+    const nftProtect = await hre.viem.deployContract("NFTProtect", [arbitratorRegistry.address, signatureVerifier.address]);
     return nftProtect;
 }
 
-async function deployUserRegistry(arbitratorRegistry: GetContractReturnType, did: GetContractReturnType, nftProtect: GetContractReturnType, coupons: GetContractReturnType) {
-    const userRegistry = await hre.viem.deployContract("UserRegistry", [arbitratorRegistry.address, did.address, nftProtect.address, coupons.address]);
+async function deployUserRegistry(arbitratorRegistry: GetContractReturnType, nftProtect: GetContractReturnType) {
+    const userRegistry = await hre.viem.deployContract("UserRegistry", [arbitratorRegistry.address, nftProtect.address]);
     return userRegistry;
-}
-
-async function deployNFTPCoupons() {
-    const userRegistry = await hre.viem.deployContract("NFTPCoupons");
-    return userRegistry;
-}
-
-async function getCouponsAddress(userRegistry: GetContractReturnType) {
-    // Get the address of the Coupons contract
-    const couponsAddress = await userRegistry.read.coupons();
-    console.log("Coupons contract address:", couponsAddress)
-    // Save the Coupons contract address to the contractsData
-    let networkData = contractsData[hre.network.name] || {};
-    networkData["NFTPCoupons"] = couponsAddress;
-    contractsData[hre.network.name] = networkData;
-    return couponsAddress
 }
 
 async function deployArbitratorRegistry() {
@@ -64,14 +48,17 @@ async function deployMultipleProtectHelper(nftProtect: GetContractReturnType) {
     return helper;
 }
 
+async function deploySignatureVerifier() {
+    const signatureVerifier = await hre.viem.deployContract("SignatureVerifier");
+    return signatureVerifier;
+}
 
 async function main() {
     try {
+        const signatureVerifier = await getOrDeployContract("SignatureVerifier", deploySignatureVerifier);
         const arbitratorRegistry = await getOrDeployContract("ArbitratorRegistry", deployArbitratorRegistry);
-        const did = await getOrDeployContract("UserDIDDummyAllowAll", deployDID);
-        const nftProtect = await getOrDeployContract("NFTProtect", () => deployNFTProtect(arbitratorRegistry));
-        const coupons = await getOrDeployContract("NFTPCoupons", () => deployNFTPCoupons());
-        const userRegistry = await getOrDeployContract("UserRegistry", () => deployUserRegistry(arbitratorRegistry, did, nftProtect, coupons));
+        const nftProtect = await getOrDeployContract("NFTProtect", () => deployNFTProtect(arbitratorRegistry, signatureVerifier));
+        const userRegistry = await getOrDeployContract("UserRegistry", () => deployUserRegistry(arbitratorRegistry, nftProtect));
         const protectHelper = await getOrDeployContract("MultipleProtectHelper", () => deployMultipleProtectHelper(nftProtect));
     } catch (error) {
         console.error(error);
