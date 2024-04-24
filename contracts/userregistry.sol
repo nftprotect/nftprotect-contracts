@@ -40,7 +40,6 @@ contract UserRegistry is Ownable, IUserRegistry
     event ReferrerSet(address indexed user, address indexed referrer);
     event PartnerSet(address indexed partner, uint8 discount, uint8 affiliatePercent);
     event PartnerDeleted(address indexed partner);
-    event CouponsSet(address indexed newAddress);
 
     modifier onlyNFTProtect()
     {

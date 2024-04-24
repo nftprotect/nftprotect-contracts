@@ -32,6 +32,7 @@ import "./iuserregistry.sol";
 import "./arbitratorregistry.sol";
 import "./signature-verifier.sol";
 
+// TODO: Fix disputeToRequest (multiple arbitrators)
 contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
 {
     using Address for address payable;
@@ -42,7 +43,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     event BurnOnActionChanged(bool boa);
     event BaseChanged(string base);
     event MetaEvidenceLoaderChanged(address mel);
-    event MetaEvidenceSet(MetaEvidenceType evidenceType, string evidence);
+    event MetaEvidenceSet(MetaEvidenceType indexed evidenceType, string evidence);
     // Event emitted when the signature verifier is changed
     event SignatureVerifierChanged(address newSigVerifier);
     event Protected(uint256 indexed assetType, address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount);
@@ -574,13 +575,21 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     {
         super._beforeTokenTransfer(from, to, tokenId, batchSize);
         require(!_hasRequest(tokenId), "under dispute");
-        if (!allowThirdPartyTransfers) {
-            address originalOwner = originalOwnerOf(tokenId);
-            address owner = ownerOf(tokenId);
-            if (owner != originalOwner) {
-                require(to == originalOwner, "Transfer to non-original owner not allowed");
-            }
-        }
+    }
+
+    function transferFrom(address from, address to, uint256 tokenId) public override {
+        require(allowThirdPartyTransfers || from == originalOwnerOf(tokenId) || to == originalOwnerOf(tokenId), "transfer allowed only to/from original owner");
+        super.transferFrom(from, to, tokenId);
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory _data) public override {
+        require(allowThirdPartyTransfers || from == originalOwnerOf(tokenId) || to == originalOwnerOf(tokenId), "transfer allowed only to/from original owner");
+        super.safeTransferFrom(from, to, tokenId, _data);
+    }
+
+    function approve(address to, uint256 tokenId) public override {
+        require(allowThirdPartyTransfers || _msgSender() == originalOwnerOf(tokenId), "approve allowed only from original owner");
+        super.approve(to, tokenId);
     }
 
     function rescueERC20(address erc20, uint256 amount, address receiver) public onlyOwner
