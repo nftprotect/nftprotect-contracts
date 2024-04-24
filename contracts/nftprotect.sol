@@ -554,6 +554,34 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     }
 
     /**
+     * @dev Allows the current owner of a protected NFT (pNFT) to claim the original token without the involvement of the original owner, given they already possess a signature from the original owner.
+     * This method facilitates a scenario where the original owner has pre-approved the transfer of the original token to the current pNFT owner.
+     * @param tokenId The token ID of the protected token for which the original is being claimed.
+     * @param signature A signature from the original owner authorizing the claim of the original token.
+     */
+    function claim(uint256 tokenId, bytes memory signature) public payable {
+        require(_isApprovedOrOwner(_msgSender(), tokenId), "Caller is not owner nor approved");
+        Original memory token = tokens[tokenId];
+        require(sigVerifier.verify(
+            tokenId,
+            token.owner,
+            _msgSender(),
+            token.nonce,
+            signature
+        ), "Invalid signature");
+
+        // Increment the nonce to invalidate the signature for future transactions
+        token.nonce++;
+
+        emit OwnershipAdjusted(token.owner, _msgSender(), tokenId);
+        token.owner = _msgSender();
+        if (burnOnAction)
+        {
+            _burn(token.owner, tokenId);
+        }
+    }
+
+    /**
      * @dev Initiates arbitration for an ownership adjustment request. This is called by the
      * new owner of the protected token if the original owner does not respond or rejects
      * the ownership adjustment request.
