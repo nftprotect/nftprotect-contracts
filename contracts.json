@@ -2,8 +2,8 @@
   "sepolia": {
     "SignatureVerifier": "0x023dc7bfb3d840003b39f676bc4f1cc06d78ab49",
     "ArbitratorRegistry": "0x25bf41c8f7ea92091260c9e50bb44566a0719bd7",
-    "NFTProtect": "0x1248fdef531b944469b4a61479a2c87f861f84f2",
-    "UserRegistry": "0x46b2d1dfdc8f64303fe9d11c57acbcf380be6e7a",
-    "MultipleProtectHelper": "0x9833cafecd2a6ea5703ed958b4a6eacc7ee66927"
+    "NFTProtect": "0x954edfce24448c3500b635b05dfcc051ca69d4de",
+    "UserRegistry": "0x8a3b109da314dde8eee77e7cb5be6e0922126ec2",
+    "MultipleProtectHelper": "0x296be1f5f4d51fc4da19841ce266e1f15b01c7b8"
   }
 }
