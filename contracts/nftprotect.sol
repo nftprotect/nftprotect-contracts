@@ -46,7 +46,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     event MetaEvidenceSet(MetaEvidenceType indexed evidenceType, string evidence);
     // Event emitted when the signature verifier is changed
     event SignatureVerifierChanged(address newSigVerifier);
-    event Protected(uint256 indexed assetType, address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount);
+    event Protected(uint256 indexed assetType, address partner, address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount);
     event Unprotected(address indexed dst, uint256 indexed tokenId);
     event OwnershipAdjusted(address indexed newowner, address indexed oldowner, uint256 indexed tokenId);
     event OwnershipAdjustmentAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId);
@@ -345,7 +345,10 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         {
             IERC20(contr).transferFrom(_msgSender(), address(this), amount);
         }
-        emit Protected(uint256(std), user, contr, tokenId, tokensCounter, amount);
+        address partner = _msgSender() == user ?
+            address(0) :
+            _msgSender();
+        emit Protected(uint256(std), partner, user, contr, tokenId, tokensCounter, amount);
         allow = false;
         return tokensCounter;
     }
