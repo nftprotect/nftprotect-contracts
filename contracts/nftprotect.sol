@@ -729,8 +729,4 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         super.safeTransferFrom(from, to, tokenId, _data);
     }
 
-    function approve(address to, uint256 tokenId) public override {
-        require(allowThirdPartyTransfers || _msgSender() == originalOwnerOf(tokenId), "approve allowed only from original owner");
-        super.approve(to, tokenId);
-    }
 }
