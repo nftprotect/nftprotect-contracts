@@ -52,7 +52,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     event OwnershipAdjustmentAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId);
     event OwnershipAdjustmentAnswered(uint256 indexed requestId, bool accept);
     event OwnershipAdjustmentArbitrateAsked(uint256 indexed requestId, address dst, uint256 indexed tokenId);
-    event OwnershipRestoreAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId);
+    event OwnershipRestoreAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId, MetaEvidenceType metaEvidenceType);
     event OwnershipRestoreAnswered(uint256 indexed requestId, bool accept);
 
     enum Standard
@@ -112,7 +112,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     mapping(uint256 => uint256)  public tokenToRequest;
     mapping(bytes32 => uint256) public disputeToRequest;
     enum MetaEvidenceType
-    {
+    { // TODO: add metaEvidenceId to event to avoid loading onchain and use graph
         askOwnershipAdjustmentArbitrate, // used in askOwnershipAdjustmentArbitrate() - basic
         askOwnershipRestoreArbitrateMistake, // used in askOwnershipRestoreArbitrate() - basic
         askOwnershipRestoreArbitratePhishing, // used in askOwnershipRestoreArbitrate() - basic
@@ -366,7 +366,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(sigVerifier.verify(
             tokenId,
             _msgSender(),
-            _msgSender(),
+            dst,
             token.nonce,
             signature
         ), "invalid signature");
@@ -489,7 +489,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      */
     function askOwnershipAdjustment(uint256 tokenId, address dst, uint256 arbitratorId) public 
     {
-        require(_isApprovedOrOwner(_msgSender(), tokenId), "not owner");
+        // Using _isApprovedOrOwner here can produce a situation when approved address becomes 
+        // original owner instead of pNFT owner address.
+        require(ownerOf(tokenId) == _msgSender(), "not owner");
         require(!_hasRequest(tokenId), "have request");
         require(!isOriginalOwner(tokenId, _msgSender()), "already owner");
         requestsCounter++;
@@ -527,17 +529,17 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(request.status == Status.Initial || request.status == Status.Rejected, "answered");
         Original storage token = tokens[request.tokenId];
         require(isOriginalOwner(request.tokenId, _msgSender()), "not owner");
-        require(sigVerifier.verify(
-            token.tokenId,
-            _msgSender(),
-            ownerOf(token.tokenId),
-            token.nonce,
-            signature
-        ), "invalid signature");
-        token.nonce++;
 
         if (accept)
         {
+            require(sigVerifier.verify(
+                token.tokenId,
+                _msgSender(),
+                ownerOf(token.tokenId),
+                token.nonce,
+                signature
+            ), "invalid signature");
+            token.nonce++;
             request.status = Status.Accepted;
             token.owner = request.newowner;
             emit OwnershipAdjustmentAnswered(requestId, accept);
@@ -560,7 +562,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      * @param signature A signature from the original owner authorizing the claim of the original token.
      */
     function claim(uint256 tokenId, bytes memory signature) public payable {
-        require(_isApprovedOrOwner(_msgSender(), tokenId), "Caller is not owner nor approved");
+        // Using _isApprovedOrOwner here can produce a situation when approved address becomes
+        // original owner instead of pNFT owner address.
+        require(ownerOf(tokenId) == _msgSender(), "not owner");
         Original memory token = tokens[tokenId];
         require(sigVerifier.verify(
             tokenId,
@@ -595,6 +599,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(request.status == Status.Initial || request.status == Status.Rejected, "wrong status");
         require(request.status == Status.Rejected || request.timeout <= block.timestamp, "wait for answer");
         require(_isApprovedOrOwner(_msgSender(), request.tokenId), "not owner");
+        require(!isOriginalOwner(request.tokenId, _msgSender()), "already owner");
         (request.localDisputeId, request.externalDisputeId ) = _processPaymentAndCreateDispute(
             _msgSender(),
             request.arbitratorId,
@@ -621,7 +626,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         require(!_hasRequest(tokenId), "have request");
         require(isOriginalOwner(tokenId, _msgSender()), "not owner");
         require(_exists(tokenId), "no token");
-        require(!_isApprovedOrOwner(_msgSender(), tokenId), "already owner");
+        // Using _isApprovedOrOwner here can produce a situation, when user is approved but doesn't know about it.
+        // It will lock the ability to ask for ownership restoration for him.
+        require(ownerOf(tokenId) != _msgSender(), "already owner");
         require(
             metaEvidenceType == MetaEvidenceType.askOwnershipRestoreArbitrateMistake ||
             metaEvidenceType == MetaEvidenceType.askOwnershipRestoreArbitratePhishing ||
@@ -650,7 +657,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         bytes32 disputeKey = _getDisputeKeyHash(arbitratorId, disputeId);
         disputeToRequest[disputeKey] = requestsCounter;
         tokenToRequest[tokenId] = requestsCounter;
-        emit OwnershipRestoreAsked(requestsCounter, _msgSender(), ownerOf(tokenId), tokenId);
+        emit OwnershipRestoreAsked(requestsCounter, _msgSender(), ownerOf(tokenId), tokenId, metaEvidenceType);
     }
 
     /**
@@ -696,6 +703,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         {
             emit OwnershipRestoreAnswered(requestId, accept);
         }
+        tokens[request.tokenId].nonce += 1; // Update nonce on any decision
         if (accept)
         {
             if (request.reqtype == ReqType.OwnershipAdjustment)

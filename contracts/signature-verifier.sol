@@ -32,7 +32,7 @@ contract SignatureVerifier is Ownable {
 
     // EIP-712 Message TypeHash
     bytes32 public constant MESSAGE_TYPEHASH = keccak256(
-        "Message(uint256 tokenId,address newOwner,uint256 nonce,string messageText)"
+        "Message(string text,uint256 tokenId,address newOwner,uint256 nonce)"
     );
 
     string constant MESSAGE_TEXT = "WARNING! READ CAREFULLY!\nBy signing this message, you agree to withdraw your original NFT from the NFT Protect protocol. Access to it will no longer be recoverable through NFT Protect!\n";
@@ -63,10 +63,10 @@ contract SignatureVerifier is Ownable {
         bytes32 structHash = keccak256(
             abi.encode(
                 MESSAGE_TYPEHASH,
+                MESSAGE_TEXT_HASH,
                 tokenId,
                 newOwner,
-                nonce,
-                MESSAGE_TEXT_HASH
+                nonce
             )
         );
 

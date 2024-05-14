@@ -18,10 +18,10 @@ describe("SignatureVerifier", function () {
     const nullAddress = "0x0000000000000000000000000000000000000000";
     const types = {
         Message: [
+            { name: "text", type: "string" },
             { name: "tokenId", type: "uint256" },
             { name: "newOwner", type: "address" },
             { name: "nonce", type: "uint256" },
-            { name: "messageText", type: "string" }
         ]
     };
 
@@ -38,10 +38,10 @@ describe("SignatureVerifier", function () {
             types,
             primaryType: "Message",
             message: {
+                text: messageText,
                 tokenId,
                 newOwner,
                 nonce,
-                messageText,
                 ...overrides
             }
         });
@@ -77,10 +77,10 @@ describe("SignatureVerifier", function () {
                 types,
                 primaryType: "Message",
                 message: {
+                    text: messageText,
                     tokenId,
                     newOwner,
-                    nonce,
-                    messageText,
+                    nonce
                 }
             });
     
@@ -101,10 +101,10 @@ describe("SignatureVerifier", function () {
                 types,
                 primaryType: "Message",
                 message: {
+                    text: messageText,
                     tokenId,
                     newOwner,
                     nonce,
-                    messageText,
                 }
             });    // Get the hash of the signed message
 
