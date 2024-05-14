@@ -539,10 +539,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                 token.nonce,
                 signature
             ), "invalid signature");
-            token.nonce++;
             request.status = Status.Accepted;
             token.owner = request.newowner;
-            emit OwnershipAdjustmentAnswered(requestId, accept);
             if (burnOnAction)
             {
                 _burn(token.owner, request.tokenId);
@@ -551,8 +549,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         else
         {
             request.status = Status.Rejected;
-            emit OwnershipAdjustmentAnswered(requestId, accept);
         }
+        token.nonce++; // it's easier to handle if nonce updates on every OwnershipAdjustmentAnswered event
+        emit OwnershipAdjustmentAnswered(requestId, accept);
     }
 
     /**
