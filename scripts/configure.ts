@@ -196,7 +196,7 @@ async function main() {
             console.log(`ArbitratorRegistry ${arbRegistry.address} configured successfully`);
             console.log(`2. NFTProtect:`);
             await setNFTProtectUserRegistry();
-            //await setNFTProtectBaseURI();
+            await setNFTProtectBaseURI();
             const nftProtect = await configureNFTProtectMetaEvidence();
             console.log(`NFTProtect ${nftProtect.address} configured successfully`);
             console.log(`3. UserRegistry:`);
