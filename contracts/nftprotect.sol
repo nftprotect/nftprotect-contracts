@@ -44,16 +44,17 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     event AllowThirdPartyTransfersChanged(bool allowed);
     event MetaEvidenceLoaderChanged(address mel);
     event MetaEvidenceSet(MetaEvidenceType indexed evidenceType, string evidence);
-    // Event emitted when the signature verifier is changed
     event SignatureVerifierChanged(address newSigVerifier);
     event Protected(uint256 indexed assetType, address partner, address indexed owner, address contr, uint256 tokenIdOrig, uint256 indexed tokenId, uint256 amount);
     event Unprotected(address indexed dst, uint256 indexed tokenId);
+    // In these events newowner is pNFT owner requesting the adjustment and oldowner is original owner
     event OwnershipAdjusted(address indexed newowner, address indexed oldowner, uint256 indexed tokenId);
     event OwnershipAdjustmentAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId);
-    event OwnershipAdjustmentAnswered(uint256 indexed requestId, bool accept);
-    event OwnershipAdjustmentArbitrateAsked(uint256 indexed requestId, address dst, uint256 indexed tokenId);
+    event OwnershipAdjustmentAnswered(uint256 indexed requestId, address indexed newowner, address indexed oldowner, bool accept);
+    event OwnershipAdjustmentArbitrateAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId);
+    // In these events newowner is original owner (or a new address specified by original owner) and oldowner is pNFT owner (potential scamer)
     event OwnershipRestoreAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId, MetaEvidenceType metaEvidenceType);
-    event OwnershipRestoreAnswered(uint256 indexed requestId, bool accept);
+    event OwnershipRestoreAnswered(uint256 indexed requestId, address indexed newowner, address indexed oldowner, bool accept);
 
     enum Standard
     {
@@ -530,6 +531,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         Original storage token = tokens[request.tokenId];
         require(isOriginalOwner(request.tokenId, _msgSender()), "not owner");
 
+        address oldowner = token.owner;
         if (accept)
         {
             require(sigVerifier.verify(
@@ -551,7 +553,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             request.status = Status.Rejected;
         }
         token.nonce++; // it's easier to handle if nonce updates on every OwnershipAdjustmentAnswered event
-        emit OwnershipAdjustmentAnswered(requestId, accept);
+        emit OwnershipAdjustmentAnswered(requestId, request.newowner, oldowner, accept);
     }
 
     /**
@@ -564,7 +566,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         // Using _isApprovedOrOwner here can produce a situation when approved address becomes
         // original owner instead of pNFT owner address.
         require(ownerOf(tokenId) == _msgSender(), "not owner");
-        Original memory token = tokens[tokenId];
+        Original storage token = tokens[tokenId];
         require(sigVerifier.verify(
             tokenId,
             token.owner,
@@ -608,7 +610,8 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         request.status = Status.Disputed;
         bytes32 disputeKey = _getDisputeKeyHash(request.arbitratorId, request.localDisputeId);
         disputeToRequest[disputeKey] = requestId;
-        emit OwnershipAdjustmentArbitrateAsked(requestId, request.newowner, request.tokenId);
+        Original memory token = tokens[request.tokenId];
+        emit OwnershipAdjustmentArbitrateAsked(requestId, request.newowner, token.owner, request.tokenId);
     }
 
     /**
@@ -656,7 +659,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         bytes32 disputeKey = _getDisputeKeyHash(arbitratorId, disputeId);
         disputeToRequest[disputeKey] = requestsCounter;
         tokenToRequest[tokenId] = requestsCounter;
-        emit OwnershipRestoreAsked(requestsCounter, _msgSender(), ownerOf(tokenId), tokenId, metaEvidenceType);
+        emit OwnershipRestoreAsked(requestsCounter, dst == address(0) ? _msgSender() : dst, ownerOf(tokenId), tokenId, metaEvidenceType);
     }
 
     /**
@@ -694,20 +697,21 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
             payable(address(0)), // Referrer is already set on entry
             IUserRegistry.FeeType.FetchRuling
         );
+        Original storage token = tokens[request.tokenId];
         if (request.reqtype == ReqType.OwnershipAdjustment)
         {
-            emit OwnershipAdjustmentAnswered(requestId, accept);
+            emit OwnershipAdjustmentAnswered(requestId, request.newowner, token.owner, accept);
         }
         else if (request.reqtype == ReqType.OwnershipRestore)
         {
-            emit OwnershipRestoreAnswered(requestId, accept);
+            emit OwnershipRestoreAnswered(requestId, request.newowner, token.owner, accept);
         }
-        tokens[request.tokenId].nonce += 1; // Update nonce on any decision
+        token.nonce += 1; // Update nonce on any decision
         if (accept)
         {
             if (request.reqtype == ReqType.OwnershipAdjustment)
             {
-                tokens[request.tokenId].owner = request.newowner;
+                token.owner = request.newowner;
             }
             else if (request.reqtype == ReqType.OwnershipRestore)
             {
