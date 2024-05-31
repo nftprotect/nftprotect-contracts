@@ -19,7 +19,7 @@ along with the NFTProtect Contract. If not, see <http://www.gnu.org/licenses/>.
 // SPDX-License-Identifier: GNU lesser General Public License
 
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -32,7 +32,7 @@ import "./iuserregistry.sol";
 import "./arbitratorregistry.sol";
 import "./signature-verifier.sol";
 
-contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
+contract NFTProtect is ERC721, Ownable, IERC721Receiver, IERC1155Receiver
 {
     using Address for address payable;
 
@@ -55,6 +55,24 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     // In these events newowner is original owner (or a new address specified by original owner) and oldowner is pNFT owner (potential scamer)
     event OwnershipRestoreAsked(uint256 indexed requestId, address indexed newowner, address indexed oldowner, uint256 tokenId, MetaEvidenceType metaEvidenceType);
     event OwnershipRestoreAnswered(uint256 indexed requestId, address indexed newowner, address indexed oldowner, bool accept);
+
+    // Define errors
+    error SignatureVerifierNotSpecified();
+    error NotOwner(address sender, uint256 tokenId);
+    error NotOriginalOwner(address sender, uint256 tokenId);
+    error InvalidSignature(address sender, uint256 tokenId);
+    error HaveRequest(uint256 tokenId);
+    error AlreadyOwner(address sender, uint256 tokenId);
+    error UnknownRequest(uint256 requestId);
+    error UnknownToken(uint256 tokenId);
+    error WrongRequestStatus(uint256 requestId, Status status);
+    error WaitForAnswer(uint256 requestId, uint256 timeout);
+    error NoArbitrator(uint256 arbitratorId);
+    error WrongMetaEvidence(MetaEvidenceType metaEvidenceType);
+    error RulingPending(uint256 requestId);
+    error UnderDispute(uint256 requestId);
+    error TransferNotAllowed(uint256 tokenId);
+    error NotMetaEvidenceLoader(address sender);
 
     enum Standard
     {
@@ -135,7 +153,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     bool               public   allowThirdPartyTransfers;
     string             public   base;
 
-    constructor(address areg, address signatureVerifier) ERC721("NFT Protect", "pNFT")
+    constructor(address areg, address signatureVerifier) ERC721("NFT Protect", "pNFT") Ownable(_msgSender())
     {
         emit Deployed();
         setArbitratorRegistry(areg);
@@ -152,7 +170,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      * @param newSigVerifier The address of the new signature verifier contract.
      */
     function setSignatureVerifier(address newSigVerifier) public onlyOwner {
-        require(newSigVerifier != address(0), "SignatureVerifier address cannot be zero");
+        if (newSigVerifier == address(0)) {
+            revert SignatureVerifierNotSpecified();
+        }
         sigVerifier = SignatureVerifier(newSigVerifier);
         emit SignatureVerifierChanged(newSigVerifier);
     }
@@ -270,7 +290,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      */
     function tokenURI(uint256 tokenId) public view override returns (string memory)
     {
-        require(_exists(tokenId));
+        if (!_exists(tokenId)) {
+            revert UnknownToken(tokenId);
+        }
         Original memory token = tokens[tokenId];
         return bytes(base).length==0 ?
                 token.standard == Standard.ERC721 ?
@@ -361,16 +383,22 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      */
     function burn(uint256 tokenId, address dst, bytes memory signature) public payable
     {
-        require(_isApprovedOrOwner(_msgSender(), tokenId), "not owner");
-        require(isOriginalOwner(tokenId, _msgSender()), "need to askOwnershipAdjustment");
+        if (!_isApprovedOrOwner(_msgSender(), tokenId)) {
+            revert NotOwner(_msgSender(), tokenId);
+        }
+        if (!isOriginalOwner(tokenId, _msgSender())) {
+            revert NotOriginalOwner(_msgSender(), tokenId);
+        }
         Original memory token = tokens[tokenId];
-        require(sigVerifier.verify(
-            tokenId,
+        if (!sigVerifier.verify(
+            tokenId, 
             _msgSender(),
-            dst,
-            token.nonce,
+            dst, 
+            token.nonce, 
             signature
-        ), "invalid signature");
+        )) {
+            revert InvalidSignature(_msgSender(), tokenId);
+        }
         // token.nonce++; // Not needed because we burn the token
         _burn(dst == address(0) ? _msgSender() : dst, tokenId);
     }
@@ -461,17 +489,23 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      */
     function adjustOwnership(uint256 tokenId, bytes memory signature) public payable
     {
-        require(!_hasRequest(tokenId), "have request");
-        require(isOriginalOwner(tokenId, _msgSender()), "not owner");
-        Original storage token = tokens[tokenId];
-        require(sigVerifier.verify(
-            tokenId,
-            _msgSender(),
-            ownerOf(tokenId),
-            tokens[tokenId].nonce,
+        if (_hasRequest(tokenId)) {
+            revert HaveRequest(tokenId);
+        }
+        if (!isOriginalOwner(tokenId, _msgSender())) {
+            revert NotOriginalOwner(_msgSender(), tokenId);
+        }
+        Original storage token = tokens[tokenId];    
+        if (!sigVerifier.verify(
+            tokenId, 
+            _msgSender(), 
+            ownerOf(tokenId), 
+            token.nonce, 
             signature
-        ), "invalid signature");
-        tokens[tokenId].nonce++;
+        )) {
+            revert InvalidSignature(_msgSender(), tokenId);
+        }
+        token.nonce++;
         token.owner = ownerOf(tokenId);
         emit OwnershipAdjusted(token.owner, _msgSender(), tokenId);
         if (burnOnAction)
@@ -492,15 +526,23 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     {
         // Using _isApprovedOrOwner here can produce a situation when approved address becomes 
         // original owner instead of pNFT owner address.
-        require(ownerOf(tokenId) == _msgSender(), "not owner");
-        require(!_hasRequest(tokenId), "have request");
-        require(!isOriginalOwner(tokenId, _msgSender()), "already owner");
+        if (ownerOf(tokenId) != _msgSender()) {
+            revert NotOwner(_msgSender(), tokenId);
+        }
+        if (_hasRequest(tokenId)) {
+            revert HaveRequest(tokenId);
+        }
+        if (isOriginalOwner(tokenId, _msgSender())) {
+            revert AlreadyOwner(_msgSender(), tokenId);
+        }
         requestsCounter++;
         Original storage token = tokens[tokenId];
         address newowner = dst == address(0) ? _msgSender() : dst;
         IArbitrableProxy arbitrableProxy;
         (arbitrableProxy, ) = arbitratorRegistry.arbitrator(arbitratorId);
-        require(address(arbitrableProxy) != address(0), "no arbitrator");
+        if (address(arbitrableProxy) == address(0)) {
+            revert NoArbitrator(arbitratorId);
+        }
         requests[requestsCounter] =
             Request(
                 ReqType.OwnershipAdjustment,
@@ -527,20 +569,25 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     function answerOwnershipAdjustment(uint256 requestId, bool accept, bytes memory signature) public payable
     {
         Request storage request = requests[requestId];
-        require(request.status == Status.Initial || request.status == Status.Rejected, "answered");
+        if (request.status != Status.Initial && request.status != Status.Rejected) {
+            revert WrongRequestStatus(requestId, request.status);
+        }
+        if (!isOriginalOwner(request.tokenId, _msgSender())) {
+            revert NotOriginalOwner(_msgSender(), request.tokenId);
+        }
         Original storage token = tokens[request.tokenId];
-        require(isOriginalOwner(request.tokenId, _msgSender()), "not owner");
-
         address oldowner = token.owner;
         if (accept)
         {
-            require(sigVerifier.verify(
-                token.tokenId,
-                _msgSender(),
-                ownerOf(token.tokenId),
-                token.nonce,
+            if (!sigVerifier.verify(
+                request.tokenId, 
+                _msgSender(), 
+                ownerOf(request.tokenId), 
+                token.nonce, 
                 signature
-            ), "invalid signature");
+            )) {
+                revert InvalidSignature(_msgSender(), request.tokenId);
+            }
             request.status = Status.Accepted;
             token.owner = request.newowner;
             if (burnOnAction)
@@ -565,19 +612,21 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     function claim(uint256 tokenId, bytes memory signature) public payable {
         // Using _isApprovedOrOwner here can produce a situation when approved address becomes
         // original owner instead of pNFT owner address.
-        require(ownerOf(tokenId) == _msgSender(), "not owner");
+        if (ownerOf(tokenId) != _msgSender()) {
+            revert NotOwner(_msgSender(), tokenId);
+        }
         Original storage token = tokens[tokenId];
-        require(sigVerifier.verify(
+        if (!sigVerifier.verify(
             tokenId,
             token.owner,
             _msgSender(),
             token.nonce,
             signature
-        ), "Invalid signature");
-
+        )) {
+            revert InvalidSignature(_msgSender(), tokenId);
+        }
         // Increment the nonce to invalidate the signature for future transactions
         token.nonce++;
-
         emit OwnershipAdjusted(token.owner, _msgSender(), tokenId);
         token.owner = _msgSender();
         if (burnOnAction)
@@ -596,11 +645,21 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
     function askOwnershipAdjustmentArbitrate(uint256 requestId, string memory evidence) public payable
     {
         Request storage request = requests[requestId];
-        require(request.timeout > 0, "unknown request");
-        require(request.status == Status.Initial || request.status == Status.Rejected, "wrong status");
-        require(request.status == Status.Rejected || request.timeout <= block.timestamp, "wait for answer");
-        require(_isApprovedOrOwner(_msgSender(), request.tokenId), "not owner");
-        require(!isOriginalOwner(request.tokenId, _msgSender()), "already owner");
+        if (request.timeout == 0) {
+            revert UnknownRequest(requestId);
+        }
+        if (request.status != Status.Initial && request.status != Status.Rejected) {
+            revert WrongRequestStatus(requestId, request.status);
+        }
+        if (request.status != Status.Rejected && request.timeout > block.timestamp) {
+            revert WaitForAnswer(requestId, request.timeout);
+        }
+        if (!_isApprovedOrOwner(_msgSender(), request.tokenId)) {
+            revert NotOwner(_msgSender(), request.tokenId);
+        }
+        if (isOriginalOwner(request.tokenId, _msgSender())) {
+            revert AlreadyOwner(_msgSender(), request.tokenId);
+        }
         (request.localDisputeId, request.externalDisputeId ) = _processPaymentAndCreateDispute(
             _msgSender(),
             request.arbitratorId,
@@ -625,18 +684,26 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      */
     function askOwnershipRestoreArbitrate(uint256 tokenId, address dst, uint256 arbitratorId, MetaEvidenceType metaEvidenceType, string memory evidence) public payable
     {
-        require(!_hasRequest(tokenId), "have request");
-        require(isOriginalOwner(tokenId, _msgSender()), "not owner");
-        require(_exists(tokenId), "no token");
+        if (_hasRequest(tokenId)) {
+            revert HaveRequest(tokenId);
+        }
+        if (!isOriginalOwner(tokenId, _msgSender())) {
+            revert NotOriginalOwner(_msgSender(), tokenId);
+        }
+        if (!_exists(tokenId)) {
+            revert UnknownToken(tokenId);
+        }
         // Using _isApprovedOrOwner here can produce a situation, when user is approved but doesn't know about it.
         // It will lock the ability to ask for ownership restoration for him.
-        require(ownerOf(tokenId) != _msgSender(), "already owner");
-        require(
-            metaEvidenceType == MetaEvidenceType.askOwnershipRestoreArbitrateMistake ||
-            metaEvidenceType == MetaEvidenceType.askOwnershipRestoreArbitratePhishing ||
-            metaEvidenceType == MetaEvidenceType.askOwnershipRestoreArbitrateProtocolBreach,
-            "wrong MetaEvidence"
-        );
+        if (ownerOf(tokenId) == _msgSender()) {
+            revert AlreadyOwner(_msgSender(), tokenId);
+        }
+        if (metaEvidenceType != MetaEvidenceType.askOwnershipRestoreArbitrateMistake &&
+            metaEvidenceType != MetaEvidenceType.askOwnershipRestoreArbitratePhishing &&
+            metaEvidenceType != MetaEvidenceType.askOwnershipRestoreArbitrateProtocolBreach)
+        {
+            revert WrongMetaEvidence(metaEvidenceType);
+        }
         requestsCounter++;
         (uint256 disputeId, uint256 externalDisputeId) = _processPaymentAndCreateDispute(
             _msgSender(),
@@ -649,7 +716,7 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
                 ReqType.OwnershipRestore,
                 tokenId,
                 dst == address(0) ? _msgSender() : dst,
-                0,
+                block.timestamp, // put current block timestamp
                 Status.Disputed,
                 arbitratorId,
                 disputeId,
@@ -670,7 +737,9 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      */
     function submitMetaEvidence(MetaEvidenceType evidenceType, string memory evidence) public
     {
-        require(_msgSender() == metaEvidenceLoader, "forbidden");
+        if (_msgSender() != metaEvidenceLoader) {
+            revert NotMetaEvidenceLoader(_msgSender());
+        }
         metaEvidences[evidenceType] = evidence;
         emit MetaEvidenceSet(evidenceType, evidence);
     }
@@ -682,13 +751,19 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
      */
     function fetchRuling(uint256 requestId) external payable
     {
-        require(requestId > 0, "unknown requestId");
         Request storage request = requests[requestId];
-        require(request.status != Status.Accepted && request.status != Status.Rejected, "request over");
+        if (request.timeout == 0) {
+            revert UnknownRequest(requestId);
+        }
+        if (request.status == Status.Accepted || request.status == Status.Rejected) {
+            revert WrongRequestStatus(requestId, request.status);
+        }
         IArbitrableProxy arbitrableProxy;
         (arbitrableProxy, ) = arbitratorRegistry.arbitrator(request.arbitratorId);
         (, bool isRuled, uint256 ruling,) = arbitrableProxy.disputes(request.localDisputeId);
-        require(isRuled, "ruling pending");
+        if (!isRuled) {
+            revert RulingPending(requestId);
+        }
         bool accept = ruling == 1;
         request.status = accept ? Status.Accepted : Status.Rejected;
         userRegistry.processPayment{value: msg.value}(
@@ -724,19 +799,50 @@ contract NFTProtect is ERC721, IERC721Receiver, IERC1155Receiver, Ownable
         return keccak256(abi.encodePacked(arbitratorId, disputeId));
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize) internal virtual override(ERC721)
+    function _update(address to, uint256 tokenId, address auth) internal virtual override returns (address)
     {
-        super._beforeTokenTransfer(from, to, tokenId, batchSize);
-        require(!_hasRequest(tokenId), "under dispute");
+        address from = super._update(to, tokenId, auth);
+        if (_hasRequest(tokenId)) {
+            revert UnderDispute(tokenId);
+        }
+        return from;
+    }
+
+    /**
+     * @dev Returns whether `tokenId` exists.
+     *
+     * Tokens can be managed by their owner or approved accounts via {approve} or {setApprovalForAll}.
+     *
+     * Tokens start existing when they are minted (`_mint`),
+     * and stop existing when they are burned (`_burn`).
+     */
+    function _exists(uint256 tokenId) internal view virtual returns (bool) {
+        return _ownerOf(tokenId) != address(0);
+    }
+
+    /**
+     * @dev Returns whether `spender` is allowed to manage `tokenId`.
+     *
+     * Requirements:
+     *
+     * - `tokenId` must exist.
+     */
+    function _isApprovedOrOwner(address spender, uint256 tokenId) internal view virtual returns (bool) {
+        address owner = _ownerOf(tokenId);
+        return (spender == owner || isApprovedForAll(owner, spender) || getApproved(tokenId) == spender);
     }
 
     function transferFrom(address from, address to, uint256 tokenId) public override {
-        require(allowThirdPartyTransfers || from == originalOwnerOf(tokenId) || to == originalOwnerOf(tokenId), "transfer allowed only to/from original owner");
+        if (!allowThirdPartyTransfers && from != originalOwnerOf(tokenId) && to != originalOwnerOf(tokenId)) {
+            revert TransferNotAllowed(tokenId);
+        }
         super.transferFrom(from, to, tokenId);
     }
 
     function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory _data) public override {
-        require(allowThirdPartyTransfers || from == originalOwnerOf(tokenId) || to == originalOwnerOf(tokenId), "transfer allowed only to/from original owner");
+        if (!allowThirdPartyTransfers && from != originalOwnerOf(tokenId) && to != originalOwnerOf(tokenId)) {
+            revert TransferNotAllowed(tokenId);
+        }
         super.safeTransferFrom(from, to, tokenId, _data);
     }
 

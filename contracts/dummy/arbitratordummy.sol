@@ -19,7 +19,7 @@ along with the ArbitratorDummy Contract. If not, see <http://www.gnu.org/license
 // SPDX-License-Identifier: GNU lesser General Public License
 
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -43,6 +43,8 @@ contract ArbitratorDummy is Ownable, IArbitrator
     }
 
     Dispute[] public disputes;
+
+    constructor() Ownable(_msgSender()) {}
 
     function arbitrationCost(bytes memory /*extraData*/) public pure override returns (uint256)
     {

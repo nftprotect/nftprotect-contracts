@@ -19,7 +19,7 @@ along with the UserDIDDummy Contract. If not, see <http://www.gnu.org/licenses/>
 // SPDX-License-Identifier: GNU lesser General Public License
 
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../iuserdid.sol";
@@ -27,6 +27,8 @@ import "../iuserdid.sol";
 
 contract UserDIDDummyAllowAll is Ownable, IUserDID
 {
+    constructor() Ownable(_msgSender()) {}
+
     function provider() public pure override returns(string memory)
     {
         return "dummyAllowAll";

@@ -19,7 +19,7 @@ along with the ArbitratorRegistry Contract. If not, see <http://www.gnu.org/lice
 // SPDX-License-Identifier: GNU lesser General Public License
 
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@kleros/erc-792/contracts/IArbitrator.sol";
@@ -33,6 +33,8 @@ contract ArbitratorRegistry is Ownable
     event ExtraDataChanged(uint256 indexed id, bytes extraData);
     event ArbitratorDeleted(uint256 indexed id);
 
+    error ArbitratorNotFound(uint256 id);
+
     struct Arbitrator
     {
         string           name;
@@ -43,7 +45,7 @@ contract ArbitratorRegistry is Ownable
     uint256                        public counter;
     mapping(uint256 => Arbitrator) public arbitrators;
 
-    constructor()
+    constructor() Ownable(_msgSender())
     {
         emit Deployed();
     }
@@ -66,7 +68,9 @@ contract ArbitratorRegistry is Ownable
 
     function deleteArbitrator(uint256 id) public onlyOwner
     {
-        require(address(arbitrators[id].arbitrator) != address(0), "ArbitratorRegistry: not found");
+        if (address(arbitrators[id].arbitrator) == address(0)) {
+            revert ArbitratorNotFound(id);
+        }
         delete arbitrators[id];
         emit ArbitratorDeleted(id);
     }

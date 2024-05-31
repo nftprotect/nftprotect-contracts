@@ -18,7 +18,7 @@ along with the NFTProtect Contract. If not, see <http://www.gnu.org/licenses/>.
 */
 // SPDX-License-Identifier: GNU lesser General Public License
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./idiscounter.sol";
@@ -41,11 +41,16 @@ contract SimpleDiscounter is IDiscounter, Ownable {
     // Event emitted when the discount consumer address is changed.
     event DiscountConsumerChanged(address indexed consumer);
 
+    error NotDiscountConsumer(address sender);
+    error DiscountConsumerNotSpecified();
+    error NotEnoughDiscounts(address user, uint256 available, uint256 required);
+    error DiscountAmountIsNull();
+
     /**
      * @dev Sets the initial discount consumer address upon contract deployment.
      * @param consumer The address of the initial discount consumer.
      */
-    constructor(address consumer) {
+    constructor(address consumer) Ownable(_msgSender()) {
         discountConsumer = consumer;
     }
 
@@ -53,7 +58,9 @@ contract SimpleDiscounter is IDiscounter, Ownable {
      * @dev Ensures that only the designated discount consumer can call a function.
      */
     modifier onlyDiscountConsumer() {
-        require(msg.sender == discountConsumer, "SimpleDiscounter: caller is not the discount consumer");
+        if (_msgSender() != discountConsumer) {
+            revert NotDiscountConsumer(_msgSender());
+        }
         _;
     }
 
@@ -65,7 +72,9 @@ contract SimpleDiscounter is IDiscounter, Ownable {
      * - `discountConsumer` cannot be the zero address.
      */
     function setDiscountConsumer(address consumer) external onlyOwner {
-        require(consumer != address(0), "SimpleDiscounter: invalid discount consumer address");
+        if (consumer == address(0)) {
+            revert DiscountConsumerNotSpecified();
+        }
         discountConsumer = consumer;
         emit DiscountConsumerChanged(discountConsumer);
     }
@@ -87,7 +96,9 @@ contract SimpleDiscounter is IDiscounter, Ownable {
      * - The user must have at least one discount available.
      */
     function useDiscount(address user) external override onlyDiscountConsumer {
-        require(discounts[user] > 0, "SimpleDiscounter: no discount to use");
+        if (discounts[user] == 0) {
+            revert NotEnoughDiscounts(user, 0, 0);
+        }
         discounts[user] -= 1;
         emit DiscountUsed(user, 1);
     }
@@ -101,7 +112,9 @@ contract SimpleDiscounter is IDiscounter, Ownable {
      * - The user must have a sufficient number of discounts available.
      */
     function useDiscount(address user, uint256 amount) external onlyDiscountConsumer {
-        require(discounts[user] >= amount, "SimpleDiscounter: not enough discounts to use");
+        if (discounts[user] < amount) {
+            revert NotEnoughDiscounts(user, discounts[user], amount);
+        }
         discounts[user] -= amount;
         emit DiscountUsed(user, amount);
     }
@@ -115,7 +128,9 @@ contract SimpleDiscounter is IDiscounter, Ownable {
      * - `amount` must be greater than zero.
      */
     function grantDiscount(address user, uint256 amount) external onlyOwner {
-        require(amount > 0, "SimpleDiscounter: amount must be greater than zero");
+        if (amount == 0) {
+            revert DiscountAmountIsNull();
+        }
         discounts[user] += amount;
     }
 }

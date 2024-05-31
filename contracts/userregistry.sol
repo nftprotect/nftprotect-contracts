@@ -19,7 +19,7 @@ along with the UserRegistry Contract. If not, see <http://www.gnu.org/licenses/>
 // SPDX-License-Identifier: GNU lesser General Public License
 
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -41,9 +41,16 @@ contract UserRegistry is Ownable, IUserRegistry
     event PartnerSet(address indexed partner, uint8 discount, uint8 affiliatePercent);
     event PartnerDeleted(address indexed partner);
 
+    error InvalidDiscount(uint8 discount);
+    error InvalidReferrer(address referrer);
+    error IncorrectPaymentAmount(uint256 amount);
+    error NotNFTProtect(address sender);
+
     modifier onlyNFTProtect()
     {
-        require(_msgSender() == nftprotect);
+        if (_msgSender() != nftprotect) {
+            revert NotNFTProtect(_msgSender());
+        }
         _;
     }
 
@@ -63,7 +70,7 @@ contract UserRegistry is Ownable, IUserRegistry
         uint8           affiliatePercent;
     }
 
-    constructor(address areg, address nftprotectaddr)
+    constructor(address areg, address nftprotectaddr) Ownable(_msgSender())
     {
         emit Deployed();
         nftprotect = nftprotectaddr;
@@ -93,7 +100,9 @@ contract UserRegistry is Ownable, IUserRegistry
     }
 
     function setPartner(address partner, uint8 discount, uint8 affPercent) public onlyOwner {
-        require(discount <= 100, "UserRegistry: Invalid discount");
+        if (discount > 100) {
+            revert InvalidDiscount(discount);
+        }
         partners[partner] = Partner(
             true,
             discount,
@@ -123,7 +132,9 @@ contract UserRegistry is Ownable, IUserRegistry
 
     // Internal function to process affiliate payment
     function _processAffiliatePayment(address user, address payable referrer, uint256 finalFee) internal returns (uint256) {
-        require(referrer != user, "UserRegistry: invalid referrer");
+        if (referrer == user) {
+            revert InvalidReferrer(referrer);
+        }
         if (referrer == address(0)) {
             return finalFee;
         }
@@ -146,7 +157,9 @@ contract UserRegistry is Ownable, IUserRegistry
             hasProtections[user] = true;
         }
 
-        require(value == finalFee, "UserRegistry: Incorrect payment amount");
+        if (value != finalFee) {
+            revert IncorrectPaymentAmount(value);
+        }
         // If there's no fee, then just exit
         if (finalFee == 0) {
             return;

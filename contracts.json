@@ -1,9 +1,9 @@
 {
   "sepolia": {
-    "ArbitratorRegistry": "0x25bf41c8f7ea92091260c9e50bb44566a0719bd7",
-    "SignatureVerifier": "0xffcf59f89debd62c5821bcdea945382657ca3760",
-    "NFTProtect": "0x35be7e7dedc7ae13bd80ec8d26cf80ab2f7f0934",
-    "UserRegistry": "0x6307453103337b65636b221b4404d302539c99d5",
-    "MultipleProtectHelper": "0x16a1536d4385ff2e5d9fe79a37108e57c4e4bc1a"
+    "SignatureVerifier": "0x63473816e94ad6c2c8b9ec496957b900b818faf9",
+    "ArbitratorRegistry": "0xb8ef2a8ca0be3f5d734446cd6a13f56372a56e2b",
+    "NFTProtect": "0x27b6e64bf6faec53141f2a2cd2da55dc1dffa5ba",
+    "UserRegistry": "0xf557231b2e3b088e9b8cb1072c0ce03898975c6a",
+    "MultipleProtectHelper": "0xebb68e730ca1bab2f8191bf150c7392e62f94fc0"
   }
 }

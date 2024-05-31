@@ -18,7 +18,7 @@ along with the NFTProtect Contract. If not, see <http://www.gnu.org/licenses/>.
 */
 // SPDX-License-Identifier: GNU lesser General Public License
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -27,6 +27,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /// @notice This contract provides functions to verify off-chain signatures for NFT transactions.
 /// @dev This contract uses EIP-712 standard for typed structured data hashing and signing.
 contract SignatureVerifier is Ownable {
+    error InvalidSignatureLength();
+    error InvalidSignatureValue();
+
     // EIP-712 Domain Separator
     bytes32 public DOMAIN_SEPARATOR;
 
@@ -38,7 +41,7 @@ contract SignatureVerifier is Ownable {
     string constant MESSAGE_TEXT = "WARNING! READ CAREFULLY!\nBy signing this message, you agree to withdraw your original NFT from the NFT Protect protocol. Access to it will no longer be recoverable through NFT Protect!\n";
     bytes32 public constant MESSAGE_TEXT_HASH = keccak256(bytes(MESSAGE_TEXT));
 
-    constructor() {
+    constructor() Ownable(_msgSender()) {
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
@@ -112,7 +115,9 @@ contract SignatureVerifier is Ownable {
         pure
         returns (uint8, bytes32, bytes32)
     {
-        require(_signature.length == 65, "Invalid signature length");
+        if (_signature.length != 65) {
+            revert InvalidSignatureLength();
+        }
 
         bytes32 r;
         bytes32 s;
@@ -153,7 +158,7 @@ contract SignatureVerifier is Ownable {
 
         // Ensure that 'v' is 27 or 28
         if (v != 27 && v != 28) {
-            revert("Invalid signature 'v' value");
+            revert InvalidSignatureValue();
         }
 
         // Perform the ecrecover operation to recover the address from the signature
